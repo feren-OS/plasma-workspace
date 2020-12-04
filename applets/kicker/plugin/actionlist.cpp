@@ -30,7 +30,7 @@
 
 #include <KIO/ApplicationLauncherJob>
 #include <KLocalizedString>
-#include <KMimeTypeTrader>
+#include <KApplicationTrader>
 #include <KNotificationJobUiDelegate>
 #include <KPropertiesDialog>
 #include <KProtocolInfo>
@@ -91,7 +91,7 @@ QVariantList createActionListForFileItem(const KFileItem &fileItem)
 {
     QVariantList list;
 
-    KService::List services = KMimeTypeTrader::self()->query(fileItem.mimetype(), QStringLiteral("Application"));
+    KService::List services = KApplicationTrader::queryByMimeType(fileItem.mimetype());
 
     if (!services.isEmpty()) {
         list << createTitleActionItem(i18n("Open with:"));
@@ -272,7 +272,7 @@ QVariantList recentDocumentActions(KService::Ptr service)
         }
 
         if (list.isEmpty()) {
-            list << createTitleActionItem(i18n("Recent Documents"));
+            list << createTitleActionItem(i18n("Recent Files"));
         }
 
         QVariantMap item = createActionItem(url.fileName(), fileItem.iconName(), QStringLiteral("_kicker_recentDocument"), resource);
@@ -281,7 +281,7 @@ QVariantList recentDocumentActions(KService::Ptr service)
     }
 
     if (!list.isEmpty()) {
-        QVariantMap forgetAction = createActionItem(i18n("Forget Recent Documents"), QStringLiteral("edit-clear-history"), QStringLiteral("_kicker_forgetRecentDocuments"));
+        QVariantMap forgetAction = createActionItem(i18n("Forget Recent Files"), QStringLiteral("edit-clear-history"), QStringLiteral("_kicker_forgetRecentDocuments"));
         list << forgetAction;
     }
 
@@ -370,7 +370,7 @@ QVariantList appstreamActions(const KService::Ptr &service)
     QVariantList ret;
 
 #ifdef HAVE_APPSTREAMQT
-    const KService::Ptr appStreamHandler = KMimeTypeTrader::self()->preferredService(QStringLiteral("x-scheme-handler/appstream"));
+    const KService::Ptr appStreamHandler = KApplicationTrader::preferredService(QStringLiteral("x-scheme-handler/appstream"));
 
     // Don't show action if we can't find any app to handle appstream:// URLs.
     if (!appStreamHandler) {

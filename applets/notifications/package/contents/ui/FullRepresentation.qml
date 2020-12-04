@@ -23,7 +23,7 @@ import QtQuick.Layouts 1.1
 
 import org.kde.plasma.plasmoid 2.0
 import org.kde.plasma.core 2.0 as PlasmaCore
-import org.kde.plasma.components 2.0 as PlasmaComponents
+import org.kde.plasma.components 2.0 as PlasmaComponents // For ModelContextMenu
 import org.kde.plasma.components 3.0 as PlasmaComponents3
 import org.kde.plasma.extras 2.0 as PlasmaExtras
 import org.kde.kirigami 2.12 as Kirigami
@@ -76,114 +76,94 @@ PlasmaComponents3.Page {
                 Layout.fillWidth: true
                 spacing: 0
 
-                RowLayout {
-                    id: dndRow
-                    spacing: units.smallSpacing
+                PlasmaComponents3.CheckBox {
+                    id: dndCheck
                     enabled: NotificationManager.Server.valid
+                    text: i18n("Do not disturb")
+                    icon.name: "notifications-disabled"
+                    checkable: true
+                    checked: Globals.inhibited
 
-                    PlasmaComponents3.CheckBox {
-                        id: dndCheck
-                        text: i18n("Do not disturb")
-                        spacing: units.smallSpacing
-                        checkable: true
-                        checked: Globals.inhibited
-
-                        // Let the menu open on press
-                        onPressed: {
-                            if (!Globals.inhibited) {
-                                dndMenu.date = new Date();
-                                // shows ontop of CheckBox to hide the fact that it's unchecked
-                                // until you actually select something :)
-                                dndMenu.open(0, 0);
-                            }
+                    // Let the menu open on press
+                    onPressed: {
+                        if (!Globals.inhibited) {
+                            dndMenu.date = new Date();
+                            // shows ontop of CheckBox to hide the fact that it's unchecked
+                            // until you actually select something :)
+                            dndMenu.open(0, 0);
                         }
-                        // but disable only on click
+                    }
+                    // but disable only on click
+                    onClicked: {
+                        if (Globals.inhibited) {
+                            Globals.revokeInhibitions();
+                        }
+                    }
+
+
+                    PlasmaComponents.ModelContextMenu {
+                        id: dndMenu
+                        property date date
+                        visualParent: dndCheck
+
                         onClicked: {
-                            if (Globals.inhibited) {
-                                Globals.revokeInhibitions();
-                            }
+                            notificationSettings.notificationsInhibitedUntil = model.date;
+                            notificationSettings.save();
                         }
 
-                        contentItem: RowLayout {
-                            spacing: dndCheck.spacing
+                        model: {
+                            var model = [];
 
-                            PlasmaCore.IconItem {
-                                Layout.leftMargin: dndCheck.mirrored ? 0 : dndCheck.indicator.width + dndCheck.spacing
-                                Layout.rightMargin: dndCheck.mirrored ? dndCheck.indicator.width + dndCheck.spacing : 0
-                                source: "notifications-disabled"
-                                Layout.preferredWidth: units.iconSizes.smallMedium
-                                Layout.preferredHeight: units.iconSizes.smallMedium
-                            }
+                            // For 1 hour
+                            var d = dndMenu.date;
+                            d.setHours(d.getHours() + 1);
+                            d.setSeconds(0);
+                            model.push({date: d, text: i18n("For 1 hour")});
 
-                            PlasmaComponents.Label {
-                                text: i18n("Do not disturb")
-                            }
-                        }
+                            d = dndMenu.date;
+                            d.setHours(d.getHours() + 4);
+                            d.setSeconds(0);
+                            model.push({date: d, text: i18n("For 4 hours")});
 
-                        PlasmaComponents.ModelContextMenu {
-                            id: dndMenu
-                            property date date
-                            visualParent: dndCheck
-
-                            onClicked: {
-                                notificationSettings.notificationsInhibitedUntil = model.date;
-                                notificationSettings.save();
-                            }
-
-                            model: {
-                                var model = [];
-
-                                // For 1 hour
-                                var d = dndMenu.date;
-                                d.setHours(d.getHours() + 1);
-                                d.setSeconds(0);
-                                model.push({date: d, text: i18n("For 1 hour")});
-
+                            // Until this evening
+                            if (dndMenu.date.getHours() < dndEveningHour) {
                                 d = dndMenu.date;
-                                d.setHours(d.getHours() + 4);
+                                // TODO make the user's preferred time schedule configurable
+                                d.setHours(dndEveningHour);
+                                d.setMinutes(0);
                                 d.setSeconds(0);
-                                model.push({date: d, text: i18n("For 4 hours")});
-
-                                // Until this evening
-                                if (dndMenu.date.getHours() < dndEveningHour) {
-                                    d = dndMenu.date;
-                                    // TODO make the user's preferred time schedule configurable
-                                    d.setHours(dndEveningHour);
-                                    d.setMinutes(0);
-                                    d.setSeconds(0);
-                                    model.push({date: d, text: i18n("Until this evening")});
-                                }
-
-                                // Until next morning
-                                if (dndMenu.date.getHours() > dndMorningHour) {
-                                    d = dndMenu.date;
-                                    d.setDate(d.getDate() + 1);
-                                    d.setHours(dndMorningHour);
-                                    d.setMinutes(0);
-                                    d.setSeconds(0);
-                                    model.push({date: d, text: i18n("Until tomorrow morning")});
-                                }
-
-                                // Until Monday
-                                // show Friday and Saturday, Sunday is "0" but for that you can use "until tomorrow morning"
-                                if (dndMenu.date.getDay() >= 5) {
-                                    d = dndMenu.date;
-                                    d.setHours(dndMorningHour);
-                                    // wraps around if necessary
-                                    d.setDate(d.getDate() + (7 - d.getDay() + 1));
-                                    d.setMinutes(0);
-                                    d.setSeconds(0);
-                                    model.push({date: d, text: i18n("Until Monday")});
-                                }
-
-                                // Until "turned off"
-                                d = dndMenu.date;
-                                // Just set it to one year in the future so we don't need yet another "do not disturb enabled" property
-                                d.setFullYear(d.getFullYear() + 1);
-                                model.push({date: d, text: i18n("Until turned off")});
-
-                                return model;
+                                model.push({date: d, text: i18n("Until this evening")});
                             }
+
+                            // Until next morning
+                            if (dndMenu.date.getHours() > dndMorningHour) {
+                                d = dndMenu.date;
+                                d.setDate(d.getDate() + 1);
+                                d.setHours(dndMorningHour);
+                                d.setMinutes(0);
+                                d.setSeconds(0);
+                                model.push({date: d, text: i18n("Until tomorrow morning")});
+                            }
+
+                            // Until Monday
+                            // show Friday and Saturday, Sunday is "0" but for that you can use "until tomorrow morning"
+                            if (dndMenu.date.getDay() >= 5) {
+                                d = dndMenu.date;
+                                d.setHours(dndMorningHour);
+                                // wraps around if necessary
+                                d.setDate(d.getDate() + (7 - d.getDay() + 1));
+                                d.setMinutes(0);
+                                d.setSeconds(0);
+                                model.push({date: d, text: i18n("Until Monday")});
+                            }
+
+                            // Until "turned off"
+                            d = dndMenu.date;
+                            // Just set it to one year in the future so we don't need yet another "do not disturb enabled" property
+                            d.setFullYear(d.getFullYear() + 1);
+                            model.push({date: d, text: i18n("Until turned off")});
+
+                            return model;
                         }
                     }
                 }
@@ -192,21 +172,24 @@ PlasmaComponents3.Page {
                     Layout.fillWidth: true
                 }
 
-                PlasmaComponents.ToolButton {
-                    iconName: "configure"
-                    // remove mnemonics
-                    tooltip: plasmoid.action("openKcm").text.replace(/([^&]*)&(.)([^&]*)/g, function (match, p1, p2, p3) {
-                        return p1.concat(p2, p3);
-                    });
+                PlasmaComponents3.ToolButton {
+                    icon.name: "configure"
                     visible: plasmoid.action("openKcm").enabled
                     onClicked: plasmoid.action("openKcm").trigger()
+
+                    PlasmaComponents3.ToolTip {
+                        text: plasmoid.action("openKcm").text
+                    }
                 }
 
-                PlasmaComponents.ToolButton {
-                    iconName: "edit-clear-history"
-                    tooltip: i18n("Clear History")
+                PlasmaComponents3.ToolButton {
+                    icon.name: "edit-clear-history"
                     enabled: plasmoid.action("clearHistory").visible
                     onClicked: action_clearHistory()
+
+                    PlasmaComponents3.ToolTip {
+                        text: i18n("Clear History")
+                    }
                 }
             }
 
@@ -559,9 +542,8 @@ PlasmaComponents3.Page {
                                     }
                                 }
 
-                                PlasmaComponents.ToolButton {
-                                    Layout.preferredWidth: minimumWidth
-                                    iconName: model.isGroupExpanded ? "arrow-up" : "arrow-down"
+                                PlasmaComponents3.ToolButton {
+                                    icon.name: model.isGroupExpanded ? "arrow-up" : "arrow-down"
                                     text: model.isGroupExpanded ? i18n("Show Fewer")
                                                                 : i18nc("Expand to show n more notifications",
                                                                         "Show %1 More", (model.groupChildrenCount - model.expandedGroupChildrenCount))
@@ -585,7 +567,7 @@ PlasmaComponents3.Page {
                     }
                 }
 
-                Kirigami.PlaceholderMessage {
+                PlasmaExtras.PlaceholderMessage {
                     anchors.centerIn: parent
                     width: parent.width - (units.largeSpacing * 4)
 
@@ -607,7 +589,7 @@ PlasmaComponents3.Page {
                         wrapMode: Text.WordWrap
                     }
 
-                    PlasmaComponents.Label {
+                    PlasmaComponents3.Label {
                         // Checking valid to avoid creating ServerInfo object if everything is alright
                         readonly property NotificationManager.ServerInfo currentOwner: !NotificationManager.Server.valid ? NotificationManager.Server.currentOwner
                                                                                                                         : null

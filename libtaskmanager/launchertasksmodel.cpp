@@ -150,7 +150,7 @@ bool LauncherTasksModel::Private::requestAddLauncherToActivities(const QUrl &_ur
         return false;
     }
 
-    const auto activities = ActivitiesSet::fromList(_activities);
+    const auto activities = ActivitiesSet(_activities.cbegin(), _activities.cend());
 
     if (url.isLocalFile() && KDesktopFile::isDesktopFile(url.toLocalFile())) {
         KDesktopFile f(url.toLocalFile());
@@ -406,7 +406,7 @@ void LauncherTasksModel::setLauncherList(const QStringList &serializedLaunchers)
         std::tie(url, _activities) =
             deserializeLauncher(serializedLauncher);
 
-        auto activities = ActivitiesSet::fromList(_activities);
+        auto activities = ActivitiesSet(_activities.cbegin(), _activities.cend());
 
         // Is url is not valid, ignore it
         if (!isValidLauncherUrl(url)) {
@@ -475,31 +475,14 @@ void LauncherTasksModel::setLauncherList(const QStringList &serializedLaunchers)
 
     if (newLaunchersOrder != d->launchersOrder
         || newActivitiesForLauncher != d->activitiesForLauncher) {
-        // Common case optimization: If the list changed but its size
-        // did not (e.g. due to reordering by a user of this model),
-        // just clear the caches and announce new data instead of
-        // resetting.
-        if (newLaunchersOrder.count() == d->launchersOrder.count()) {
-            d->appDataCache.clear();
+        beginResetModel();
 
-            std::swap(newLaunchersOrder, d->launchersOrder);
-            std::swap(newActivitiesForLauncher, d->activitiesForLauncher);
+        std::swap(newLaunchersOrder, d->launchersOrder);
+        std::swap(newActivitiesForLauncher, d->activitiesForLauncher);
 
-            emit dataChanged(
-                    index(0, 0),
-                    index(d->launchersOrder.count() - 1, 0));
+        d->appDataCache.clear();
 
-        } else {
-            beginResetModel();
-
-            std::swap(newLaunchersOrder, d->launchersOrder);
-            std::swap(newActivitiesForLauncher, d->activitiesForLauncher);
-
-            d->appDataCache.clear();
-
-            endResetModel();
-
-        }
+        endResetModel();
 
         emit launcherListChanged();
     }

@@ -515,7 +515,7 @@ void EnvCanadaIon::getXMLSetup()
 
     // If network is down, we need to spin and wait
 
-    const QUrl url(QStringLiteral("http://dd.weatheroffice.ec.gc.ca/citypage_weather/xml/siteList.xml"));
+    const QUrl url(QStringLiteral("http://dd.weather.gc.ca/citypage_weather/xml/siteList.xml"));
 
     KIO::TransferJob* getJob = KIO::get(url, KIO::NoReload, KIO::HideProgressInfo);
 
@@ -543,7 +543,7 @@ void EnvCanadaIon::getXMLData(const QString& source)
     dataKey.remove(QStringLiteral("envcan|weather|"));
     const XMLMapInfo& place = m_places[dataKey];
 
-    const QUrl url(QLatin1String("http://dd.weatheroffice.ec.gc.ca/citypage_weather/xml/") + place.territoryName + QLatin1Char('/') + place.cityCode + QStringLiteral("_e.xml"));
+    const QUrl url(QLatin1String("http://dd.weather.gc.ca/citypage_weather/xml/") + place.territoryName + QLatin1Char('/') + place.cityCode + QStringLiteral("_e.xml"));
     //url="file:///home/spstarr/Desktop/s0000649_e.xml";
     //qCDebug(IONENGINE_ENVCAN) << "Will Try URL: " << url;
 
@@ -1603,13 +1603,6 @@ void EnvCanadaIon::updateWeather(const QString& source)
                                    tempHigh,
                                    tempLow,
                                    popPrecent));
-        //qCDebug(IONENGINE_ENVCAN) << "i18n summary string: " << qPrintable(i18n(forecastInfo->shortForecast.toUtf8()));
-
-        /*
-                data.insert(QString("Long Forecast Day %1").arg(i), QString("%1|%2|%3|%4|%5|%6|%7|%8") \
-                        .arg(fieldList[0]).arg(fieldList[2]).arg(fieldList[3]).arg(fieldList[4]).arg(fieldList[6]) \
-                        .arg(fieldList[7]).arg(fieldList[8]).arg(fieldList[9]));
-        */
         ++i;
     }
 

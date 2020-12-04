@@ -97,6 +97,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "kscreenlocker_interface.h"
 #include "kwinsession_interface.h"
 
+#include <updatelaunchenvjob.h>
+
 KSMServer* the_server = nullptr;
 
 KSMServer* KSMServer::self()
@@ -643,9 +645,9 @@ KSMServer::KSMServer(InitFlags flags)
         display.remove(QRegularExpression(QStringLiteral("\\.[0-9]+$")));
         int i;
         while( (i = display.indexOf(QLatin1Char(':'))) >= 0)
-           display[i] = '_';
+           display[i] = QLatin1Char('_');
         while( (i = display.indexOf(QLatin1Char('/'))) >= 0)
-           display[i] = '_';
+           display[i] = QLatin1Char('_');
 
         fName += '_'+display.toLocal8Bit();
         FILE *f;
@@ -661,12 +663,8 @@ KSMServer::KSMServer(InitFlags flags)
         fclose(f);
         setenv( "SESSION_MANAGER", session_manager, true  );
 
-        // Pass env. var to kdeinit.
-        org::kde::KLauncher klauncher( QStringLiteral( "org.kde.klauncher5" ), QStringLiteral( "/KLauncher" ), QDBusConnection::sessionBus());
-        klauncher.setLaunchEnv( QStringLiteral( "SESSION_MANAGER" ), QString::fromLocal8Bit( (const char*) session_manager ) );
-
-        org::kde::Startup startup(QStringLiteral("org.kde.Startup"), QStringLiteral("/Startup"), QDBusConnection::sessionBus());
-        startup.updateLaunchEnv( QStringLiteral( "SESSION_MANAGER" ), QString::fromLocal8Bit( (const char*) session_manager ) );
+        auto updateEnvJob = new UpdateLaunchEnvJob(QStringLiteral("SESSION_MANAGER"), QString::fromLatin1(session_manager));
+        updateEnvJob->start();
 
         free(session_manager);
     }
@@ -696,6 +694,11 @@ KSMServer::KSMServer(InitFlags flags)
 
     connect(&protectionTimer, &QTimer::timeout, this, &KSMServer::protectionTimeout);
     connect(&restoreTimer, &QTimer::timeout, this, &KSMServer::tryRestoreNext);
+    connect(this, &KSMServer::sessionRestored, this, [this]() {
+        auto reply = m_restoreSessionCall.createReply();
+        QDBusConnection::sessionBus().send(reply);
+        m_restoreSessionCall = QDBusMessage();
+    });
     connect(qApp, &QApplication::aboutToQuit, this, &KSMServer::cleanUp);
 
     setupXIOErrorHandler();
@@ -726,9 +729,9 @@ void KSMServer::cleanUp()
     display.remove(QRegularExpression(QStringLiteral("\\.[0-9]+$")));
     int i;
     while( (i = display.indexOf(QLatin1Char(':'))) >= 0)
-         display[i] = '_';
+         display[i] = QLatin1Char('_');
     while( (i = display.indexOf(QLatin1Char('/'))) >= 0)
-         display[i] = '_';
+         display[i] = QLatin1Char('_');
 
     fName += '_'+display.toLocal8Bit();
     ::unlink(fName.data());
@@ -952,22 +955,22 @@ void KSMServer::setupShortcuts()
         QAction* a;
         a = actionCollection->addAction(QStringLiteral("Log Out"));
         a->setText(i18n("Log Out"));
-        KGlobalAccel::self()->setShortcut(a, QList<QKeySequence>() << Qt::ALT+Qt::CTRL+Qt::Key_Delete);
+        KGlobalAccel::self()->setGlobalShortcut(a, QList<QKeySequence>() << Qt::ALT+Qt::CTRL+Qt::Key_Delete);
         connect(a, &QAction::triggered, this, &KSMServer::defaultLogout);
 
         a = actionCollection->addAction(QStringLiteral("Log Out Without Confirmation"));
         a->setText(i18n("Log Out Without Confirmation"));
-        KGlobalAccel::self()->setShortcut(a, QList<QKeySequence>() << Qt::ALT+Qt::CTRL+Qt::SHIFT+Qt::Key_Delete);
+        KGlobalAccel::self()->setGlobalShortcut(a, QList<QKeySequence>() << Qt::ALT+Qt::CTRL+Qt::SHIFT+Qt::Key_Delete);
         connect(a, &QAction::triggered, this, &KSMServer::logoutWithoutConfirmation);
 
         a = actionCollection->addAction(QStringLiteral("Halt Without Confirmation"));
         a->setText(i18n("Halt Without Confirmation"));
-        KGlobalAccel::self()->setShortcut(a, QList<QKeySequence>() << Qt::ALT+Qt::CTRL+Qt::SHIFT+Qt::Key_PageDown);
+        KGlobalAccel::self()->setGlobalShortcut(a, QList<QKeySequence>() << Qt::ALT+Qt::CTRL+Qt::SHIFT+Qt::Key_PageDown);
         connect(a, &QAction::triggered, this, &KSMServer::haltWithoutConfirmation);
 
         a = actionCollection->addAction(QStringLiteral("Reboot Without Confirmation"));
         a->setText(i18n("Reboot Without Confirmation"));
-        KGlobalAccel::self()->setShortcut(a, QList<QKeySequence>() << Qt::ALT+Qt::CTRL+Qt::SHIFT+Qt::Key_PageUp);
+        KGlobalAccel::self()->setGlobalShortcut(a, QList<QKeySequence>() << Qt::ALT+Qt::CTRL+Qt::SHIFT+Qt::Key_PageUp);
         connect(a, &QAction::triggered, this, &KSMServer::rebootWithoutConfirmation);
     }
 }
@@ -1031,11 +1034,6 @@ void KSMServer::restoreSession()
    lastAppStarted = 0;
    lastIdStarted.clear();
    state = KSMServer::Restoring;
-   connect(this, &KSMServer::sessionRestored, this, [this]() {
-        auto reply = m_restoreSessionCall.createReply();
-        QDBusConnection::sessionBus().send(reply);
-        m_restoreSessionCall = QDBusMessage();
-   });
    tryRestoreNext();
 }
 

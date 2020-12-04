@@ -23,7 +23,7 @@ import QtQuick.Layouts 1.1
 import QtGraphicalEffects 1.0
 
 import org.kde.plasma.core 2.0 as PlasmaCore
-import org.kde.plasma.components 2.0 as PlasmaComponents
+import org.kde.plasma.components 3.0 as PlasmaComponents3
 
 import org.kde.plasma.private.sessions 2.0
 import "../components"
@@ -40,19 +40,19 @@ PlasmaCore.ColorScope {
 
     Connections {
         target: authenticator
-        onFailed: {
+        function onFailed() {
             root.notification = i18nd("plasma_lookandfeel_org.kde.lookandfeel","Unlocking failed");
         }
-        onGraceLockedChanged: {
+        function onGraceLockedChanged() {
             if (!authenticator.graceLocked) {
                 root.notification = "";
                 root.clearPassword();
             }
         }
-        onMessage: {
+        function onMessage() {
             root.notification = msg;
         }
-        onError: {
+        function onError() {
             root.notification = err;
         }
     }
@@ -63,8 +63,8 @@ PlasmaCore.ColorScope {
 
     Connections {
         target: sessionManagement
-        onAboutToSuspend: {
-            mainBlock.mainPasswordBox.text = "";
+        function onAboutToSuspend() {
+            root.clearPassword();
         }
     }
 
@@ -121,7 +121,7 @@ PlasmaCore.ColorScope {
                 inputPanel.showHide();
             }
             if (!uiVisible) {
-                mainBlock.mainPasswordBox.text = "";
+                root.clearPassword();
             }
         }
         Keys.onPressed: {
@@ -283,6 +283,7 @@ PlasmaCore.ColorScope {
                 ]
 
                 Loader {
+                    Layout.topMargin: PlasmaCore.Units.smallSpacing // some distance to the password field
                     Layout.fillWidth: true
                     Layout.preferredHeight: item ? item.implicitHeight : 0
                     active: config.showMediaControls
@@ -454,7 +455,7 @@ PlasmaCore.ColorScope {
                     Layout.fillWidth: true
                     spacing: units.largeSpacing
 
-                    PlasmaComponents.Button {
+                    PlasmaComponents3.Button {
                         Layout.fillWidth: true
                         font.pointSize: theme.defaultFont.pointSize + 1
                         text: i18nd("plasma_lookandfeel_org.kde.lookandfeel", "Switch to This Session")
@@ -462,7 +463,7 @@ PlasmaCore.ColorScope {
                         visible: sessionsModel.count > 0
                     }
 
-                    PlasmaComponents.Button {
+                    PlasmaComponents3.Button {
                         Layout.fillWidth: true
                         font.pointSize: theme.defaultFont.pointSize + 1
                         text: i18nd("plasma_lookandfeel_org.kde.lookandfeel", "Start New Session")
@@ -508,9 +509,9 @@ PlasmaCore.ColorScope {
                 margins: units.smallSpacing
             }
 
-            PlasmaComponents.ToolButton {
+            PlasmaComponents3.ToolButton {
                 text: i18ndc("plasma_lookandfeel_org.kde.lookandfeel", "Button to show/hide virtual keyboard", "Virtual Keyboard")
-                iconName: inputPanel.keyboardActive ? "input-keyboard-virtual-on" : "input-keyboard-virtual-off"
+                icon.name: inputPanel.keyboardActive ? "input-keyboard-virtual-on" : "input-keyboard-virtual-off"
                 onClicked: inputPanel.showHide()
 
                 visible: inputPanel.status == Loader.Ready

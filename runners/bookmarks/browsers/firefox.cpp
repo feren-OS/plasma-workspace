@@ -36,43 +36,38 @@ Firefox::Firefox(QObject *parent) :
     m_fetchsqlite(nullptr),
     m_fetchsqlite_fav(nullptr)
 {
+    m_dbCacheFile = QStandardPaths::writableLocation(QStandardPaths::CacheLocation)
+        + QStringLiteral("/bookmarkrunnerfirefoxdbfile.sqlite");
+    m_dbCacheFile_fav = QStandardPaths::writableLocation(QStandardPaths::CacheLocation)
+        + QStringLiteral("/bookmarkrunnerfirefoxfavdbfile.sqlite");
     reloadConfiguration();
 }
 
 Firefox::~Firefox()
 {
-    if (!m_dbCacheFile.isEmpty()) {
+    // Delete the cached databases
+    if (!m_dbFile.isEmpty()) {
         QFile db_CacheFile(m_dbCacheFile);
         if (db_CacheFile.exists()) {
-            //qDebug() << "Cache file was removed: " << db_CacheFile.remove();
+            db_CacheFile.remove();
         }
     }
-    //qDebug() << "Deleted Firefox Bookmarks Browser";
+    if (!m_dbFile_fav.isEmpty()) {
+        QFile db_CacheFileFav(m_dbCacheFile_fav);
+        if (db_CacheFileFav.exists()) {
+            db_CacheFileFav.remove();
+        }
+    }
 }
 
 void Firefox::prepare()
 {
-    if (m_dbCacheFile.isEmpty()) {
-        m_dbCacheFile = QStandardPaths::writableLocation(QStandardPaths::CacheLocation)
-            + QStringLiteral("/bookmarkrunnerfirefoxdbfile.sqlite");
-    }
-    if (m_dbCacheFile_fav.isEmpty()) {
-        m_dbCacheFile_fav = QStandardPaths::writableLocation(QStandardPaths::CacheLocation)
-            + QStringLiteral("/bookmarkrunnerfirefoxfavdbfile.sqlite");
-    }
-    if (!m_dbFile.isEmpty()) {
-        m_fetchsqlite = new FetchSqlite(m_dbFile, m_dbCacheFile);
+    if (updateCacheFile(m_dbFile, m_dbCacheFile) != Error) {
+        m_fetchsqlite = new FetchSqlite(m_dbCacheFile);
         m_fetchsqlite->prepare();
     }
-    if (!m_dbFile_fav.isEmpty()) {
-        m_fetchsqlite_fav = new FetchSqlite(m_dbFile_fav, m_dbCacheFile_fav);
-        m_fetchsqlite_fav->prepare();
-
-        delete m_favicon;
-        m_favicon = nullptr;
-
-        m_favicon = FaviconFromBlob::firefox(m_fetchsqlite_fav, this);
-    }
+    updateCacheFile(m_dbFile_fav, m_dbCacheFile_fav);
+    m_favicon->prepare();
 }
 
 QList< BookmarkMatch > Firefox::match(const QString& term, bool addEverything)
@@ -150,13 +145,7 @@ void Firefox::teardown()
         delete m_fetchsqlite;
         m_fetchsqlite = nullptr;
     }
-    if (m_fetchsqlite_fav) {
-        m_fetchsqlite_fav->teardown();
-        delete m_fetchsqlite_fav;
-        m_fetchsqlite_fav = nullptr;
-        delete m_favicon;
-        m_favicon = nullptr;
-    }
+    m_favicon->teardown();
 }
 
 void Firefox::reloadConfiguration()
@@ -212,4 +201,10 @@ void Firefox::reloadConfiguration()
             m_dbFile_fav = profilePath + "/favicons.sqlite";
         }
     }
+    // We can reuse the favicon instance over the lifetime of the plugin consequently the
+    // icons that are already written to disk can be reused in multiple match sessions
+    updateCacheFile(m_dbFile_fav, m_dbCacheFile_fav);
+    m_fetchsqlite_fav = new FetchSqlite(m_dbCacheFile_fav, this);
+    delete m_favicon;
+    m_favicon = FaviconFromBlob::firefox(m_fetchsqlite_fav, this);
 }

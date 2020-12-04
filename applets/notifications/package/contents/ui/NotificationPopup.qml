@@ -22,7 +22,6 @@ import QtQuick 2.8
 import QtQuick.Layouts 1.1
 
 import org.kde.plasma.core 2.0 as PlasmaCore
-import org.kde.plasma.components 2.0 as Components
 
 import org.kde.notificationmanager 1.0 as NotificationManager
 
@@ -152,31 +151,11 @@ PlasmaCore.Dialog {
                     }
                 }
             }
-            
-            Rectangle {
-                id: timeoutIndicatorRect
-                anchors {
-                    bottom: parent.bottom
-                    bottomMargin: -notificationPopup.margins.bottom
-                    left: parent.left
-                    leftMargin: -notificationPopup.margins.left
-                }
-                height: units.devicePixelRatio * 2.4
-                color: theme.highlightColor
-                opacity: timeoutIndicatorAnimation.running ? 0.6 : 0
-                visible: units.longDuration > 1
-                Behavior on opacity {
-                    NumberAnimation {
-                        duration: units.longDuration
-                    }
-                }
-            }
 
             NumberAnimation {
-                id: timeoutIndicatorAnimation
-                target: timeoutIndicatorRect
-                property: "width"
-                from: area.width + notificationPopup.margins.left + notificationPopup.margins.right
+                target: notificationItem
+                property: "remainingTime"
+                from: timer.interval
                 to: 0
                 duration: timer.interval
                 running: timer.running && units.longDuration > 1

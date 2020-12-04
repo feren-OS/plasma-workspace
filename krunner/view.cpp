@@ -51,7 +51,8 @@
 View::View(QWindow *)
     : PlasmaQuick::Dialog(),
       m_offset(.5),
-      m_floating(false)
+      m_floating(false),
+      m_retainPriorSearch(false)
 {
     setClearBeforeRendering(true);
     setColor(QColor(Qt::transparent));
@@ -87,8 +88,8 @@ View::View(QWindow *)
         package.setPath(packageName);
     }
 
-    m_qmlObj->setSource(package.fileUrl("runcommandmainscript"));
     m_qmlObj->engine()->rootContext()->setContextProperty(QStringLiteral("runnerWindow"), this);
+    m_qmlObj->setSource(package.fileUrl("runcommandmainscript"));
     m_qmlObj->completeInitialization();
 
     auto screenRemoved = [this](QScreen* screen) {
@@ -158,19 +159,40 @@ void View::loadConfig()
 {
     setFreeFloating(m_config.readEntry("FreeFloating", false));
 
-    const QStringList history = m_config.readEntry("history", QStringList());
+    m_historyEnabled = m_config.readEntry("HistoryEnabled", true);
+    QStringList history;
+    if (m_historyEnabled) {
+        history = m_config.readEntry("history", QStringList());
+    }
     if (m_history != history) {
         m_history = history;
         emit historyChanged();
+    }
+    bool retainPriorSearch = m_config.readEntry("RetainPriorSearch", true);
+    if (retainPriorSearch != m_retainPriorSearch) {
+        m_retainPriorSearch = retainPriorSearch;
+        if (!m_retainPriorSearch) {
+            m_qmlObj->rootObject()->setProperty("query", QString());
+        }
+        Q_EMIT retainPriorSearchChanged();
     }
 }
 
 bool View::event(QEvent *event)
 {
+    if (KWindowSystem::isPlatformWayland() && event->type() == QEvent::Expose && !dynamic_cast<QExposeEvent*>(event)->region().isNull()) {
+        auto surface = KWayland::Client::Surface::fromWindow(this);
+        auto shellSurface = KWayland::Client::PlasmaShellSurface::get(surface);
+        if (shellSurface && isVisible()) {
+            shellSurface->setPanelBehavior(KWayland::Client::PlasmaShellSurface::PanelBehavior::WindowsGoBelow);
+            shellSurface->setRole(KWayland::Client::PlasmaShellSurface::Role::Panel);
+            shellSurface->setPanelTakesFocus(true);
+        }
+    }
+    const bool retval = Dialog::event(event);
     // QXcbWindow overwrites the state in its show event. There are plans
     // to fix this in 5.4, but till then we must explicitly overwrite it
     // each time.
-    const bool retval = Dialog::event(event);
     bool setState = event->type() == QEvent::Show;
     if (event->type() == QEvent::PlatformSurface) {
         setState = (static_cast<QPlatformSurfaceEvent*>(event)->surfaceEventType() == QPlatformSurfaceEvent::SurfaceCreated);
@@ -178,6 +200,7 @@ bool View::event(QEvent *event)
     if (setState) {
         KWindowSystem::setState(winId(), NET::SkipTaskbar | NET::SkipPager);
     }
+
     return retval;
 }
 
@@ -229,9 +252,10 @@ void View::positionOnScreen()
     // in wayland, QScreen::availableGeometry() returns QScreen::geometry()
     // we could get a better value from plasmashell
     // BUG: 386114
-    QDBusInterface strutManager("org.kde.plasmashell", "/StrutManager", "org.kde.PlasmaShell.StrutManager");
-    QDBusPendingCall async = strutManager.asyncCall("availableScreenRect", shownOnScreen->name());
-    QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(async, this);
+    auto message = QDBusMessage::createMethodCall("org.kde.plasmashell", "/StrutManager",  "org.kde.PlasmaShell.StrutManager", "availableScreenRect");
+    message.setArguments({shownOnScreen->name()});
+    QDBusPendingCall call = QDBusConnection::sessionBus().asyncCall(message);
+    QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(call, this);
 
     QObject::connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher, shownOnScreen]() {
         watcher->deleteLater();
@@ -360,6 +384,9 @@ QStringList View::history() const
 
 void View::addToHistory(const QString &item)
 {
+    if (!m_historyEnabled) {
+        return;
+    }
     if (item.isEmpty()) {
         return;
     }
@@ -408,6 +435,9 @@ void View::removeFromHistory(int index)
 
 void View::writeHistory()
 {
+    if (!m_historyEnabled) {
+        return;
+    }
     m_config.writeEntry("history", m_history);
 }
 
@@ -420,4 +450,8 @@ void View::setVisible(bool visible)
     } else {
         PlasmaQuick::Dialog::setVisible(visible);
     }
+}
+
+bool View::retainPriorSearch() const {
+    return m_retainPriorSearch;
 }

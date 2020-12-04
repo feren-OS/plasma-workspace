@@ -694,13 +694,13 @@ void TasksModel::Private::consolidateManualSortMapForGroup(const QModelIndex &gr
         return;
     }
 
-    const QModelIndex &leader = groupingProxyIndex.child(0, 0);
+    const QModelIndex &leader = groupingProxyModel->index(0, 0, groupingProxyIndex);
     const QModelIndex &preFilterLeader = filterProxyModel->mapToSource(groupingProxyModel->mapToSource(leader));
 
     // We're moving the trailing children to the sort map position of
     // the first child, so we're skipping the first child.
     for (int i = 1; i < childCount; ++i) {
-        const QModelIndex &child = groupingProxyIndex.child(i, 0);
+        const QModelIndex &child = groupingProxyModel->index(i, 0, groupingProxyIndex);
         const QModelIndex &preFilterChild = filterProxyModel->mapToSource(groupingProxyModel->mapToSource(child));
         const int leaderPos = sortedPreFilterRows.indexOf(preFilterLeader.row());
         const int childPos = sortedPreFilterRows.indexOf(preFilterChild.row());
@@ -1024,6 +1024,8 @@ TasksModel::TasksModel(QObject *parent)
     // Start sorting.
     sort(0);
 
+    connect(this, &TasksModel::sourceModelChanged, this, &TasksModel::countChanged);
+
     // Private::updateGroupInline() sets our source model, populating the model. We
     // delay running this until the QML runtime had a chance to call our implementation
     // of QQmlParserStatus::classBegin(), setting Private::usedByQml to true. If used
@@ -1079,7 +1081,7 @@ QVariant TasksModel::data(const QModelIndex &proxyIndex, int role) const
         QVariantList winIds;
 
         for (int i = 0; i < rowCount(proxyIndex); ++i) {
-            winIds.append(proxyIndex.child(i, 0).data(AbstractTasksModel::WinIdList).toList());
+            winIds.append(index(i, 0, proxyIndex).data(AbstractTasksModel::WinIdList).toList());
         }
 
         return winIds;
@@ -1668,7 +1670,7 @@ bool TasksModel::move(int row, int newPos, const QModelIndex &parent)
             if (newPos > row) {
                 newPos += extra;
                 newPos -= groupingNewPosIndex.row();
-                groupingNewPosIndex = groupingNewPosIndexParent.child(extra, 0);
+                groupingNewPosIndex = groupingNewPosIndexParent.model()->index(extra, 0, groupingNewPosIndexParent);
             } else {
                 newPos -= groupingNewPosIndex.row();
                 groupingNewPosIndex = groupingNewPosIndexParent;
@@ -1771,7 +1773,17 @@ void TasksModel::syncLaunchers()
         for (int i = 0; i < rowCount(); ++i) {
             const QUrl &rowLauncherUrl = index(i, 0).data(AbstractTasksModel::LauncherUrlWithoutIcon).toUrl();
 
-            if (launcherUrlsMatch(launcherUrl, rowLauncherUrl, IgnoreQueryItems)) {
+            // `LauncherTasksModel::launcherList()` returns data in a format suitable for writing
+            // to persistent configuration storage, e.g. `preferred://browser`. We mean to compare
+            // this last "save state" to a higher, resolved URL representation to compute the delta
+            // so we need to move the unresolved URLs through `TaskTools::appDataFromUrl()` first.
+            // TODO: This bypasses an existing lookup cache for the resolved app data that exists
+            // in LauncherTasksModel. It's likely a good idea to eventually move these caches out
+            // of the various models and share them among users of `TaskTools::appDataFromUrl()`,
+            // and then also do resolution implicitly in `TaskTools::launcherUrlsMatch`, to speed
+            // things up slightly and make the models simpler (central cache eviction, ...).
+            if (launcherUrlsMatch(appDataFromUrl(launcherUrl).url,
+                rowLauncherUrl, IgnoreQueryItems)) {
                 row = i;
                 break;
             }
@@ -1818,7 +1830,7 @@ QModelIndex TasksModel::activeTask() const
         if (idx.data(AbstractTasksModel::IsActive).toBool()) {
             if (groupMode() != GroupDisabled && rowCount(idx)) {
                 for (int j = 0; j < rowCount(idx); ++j) {
-                    const QModelIndex &child = idx.child(j, 0);
+                    const QModelIndex &child = index(j, 0, idx);
 
                     if (child.data(AbstractTasksModel::IsActive).toBool()) {
                         return child;
@@ -1845,7 +1857,7 @@ QModelIndex TasksModel::makeModelIndex(int row, int childRow) const
         const QModelIndex &parent = index(row, 0);
 
         if (childRow < rowCount(parent)) {
-            return parent.child(childRow, 0);
+            return index(childRow, 0, parent);
         }
     }
 

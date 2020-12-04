@@ -96,17 +96,20 @@ Q_SIGNALS:
     void stayBehindChanged();
     void windowTypeChanged();
     void candidateContainmentsChanged();
+    void geometryChanged();
 
 private:
     void coronaPackageChanged(const KPackage::Package &package);
     void ensureWindowType();
     void setupWaylandIntegration();
+    bool handleKRunnerTextInput(QKeyEvent *e);
 
     QPointer<PlasmaQuick::ConfigView> m_configView;
     QPointer<QScreen> m_oldScreen;
     QPointer<QScreen> m_screenToFollow;
     WindowType m_windowType;
     KWayland::Client::PlasmaShellSurface *m_shellSurface;
+    QString m_krunnerText;
 };
 
 #endif // DESKTOPVIEW_H

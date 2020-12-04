@@ -20,7 +20,6 @@
 
 import QtQuick 2.0
 import org.kde.plasma.core 2.0 as PlasmaCore
-import org.kde.plasma.components 2.0 as Components
 import org.kde.plasma.components 3.0 as PlasmaComponents3
 import org.kde.plasma.extras 2.0 as PlasmaExtras
 import org.kde.kquickcontrolsaddons 2.0
@@ -42,6 +41,7 @@ PlasmaComponents3.Page {
         PowerManagementItem {
             id: pmSwitch
             width: parent.width
+            pluggedIn: dialog.pluggedIn
             onEnabledChanged: powermanagementChanged(enabled)
             KeyNavigation.tab: batteryList
             KeyNavigation.backtab: keyboardBrightnessSlider
@@ -88,6 +88,7 @@ PlasmaComponents3.Page {
 
                 icon: "input-keyboard-brightness"
                 label: i18n("Keyboard Brightness")
+                showPercentage: false
                 value: batterymonitor.keyboardBrightness
                 maximumValue: batterymonitor.maximumKeyboardBrightness
                 visible: isKeyboardBrightnessAvailable

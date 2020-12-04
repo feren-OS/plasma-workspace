@@ -49,7 +49,11 @@ Control {
     Layout.maximumWidth: (contentItem ? contentItem.Layout.maximumWidth : 0) + leftPadding + rightPadding
     Layout.maximumHeight: (contentItem ? contentItem.Layout.maximumHeight : 0) + leftPadding + rightPadding
 
+    Kirigami.Theme.inherit: false
     Kirigami.Theme.textColor: PlasmaCore.ColorScope.textColor
+    Kirigami.Theme.backgroundColor: PlasmaCore.ColorScope.backgroundColor
+    Kirigami.Theme.disabledTextColor: PlasmaCore.ColorScope.disabledTextColor
+
 
     contentItem: plasmoid.nativeInterface.faceController.fullRepresentation
 

@@ -30,32 +30,28 @@ import "items"
 MouseArea {
     id: root
 
-    Layout.minimumWidth: vertical ? units.iconSizes.small : tasksGrid.implicitWidth + (expander.visible ? expander.implicitWidth : 0) + units.smallSpacing
+    Layout.minimumWidth: vertical ? units.iconSizes.small : mainLayout.implicitWidth + units.smallSpacing
 
-    Layout.minimumHeight: vertical ? tasksGrid.implicitHeight + (expander.visible ? expander.implicitHeight : 0) + units.smallSpacing : units.smallSpacing
+    Layout.minimumHeight: vertical ? mainLayout.implicitHeight + units.smallSpacing : units.smallSpacing
 
     Layout.preferredHeight: Layout.minimumHeight
     LayoutMirroring.enabled: !vertical && Qt.application.layoutDirection === Qt.RightToLeft
     LayoutMirroring.childrenInherit: true
 
-    property var iconSizes: ["small", "smallMedium", "medium", "large", "huge", "enormous"];
-    property int iconSize: plasmoid.configuration.iconSize + (Kirigami.Settings.tabletMode ? 1 : 0)
+    // The icon size to display when not using the auto-scaling setting
+    readonly property int smallIconSize: units.iconSizes.smallMedium
 
-    property bool vertical: plasmoid.formFactor === PlasmaCore.Types.Vertical
-    readonly property int itemSize: {
-        var baseSize = units.roundToIconSize(Math.min(Math.min(width, height), units.iconSizes[iconSizes[Math.min(iconSizes.length-1, iconSize)]]));
-        if (Kirigami.Settings.tabletMode) {
-            // Set the tray items' clickable areas on the panel to be bigger than normal to allow for easier touchability
-            return baseSize + units.smallSpacing;
-        } else {
-            return baseSize + Math.round(units.smallSpacing/2);
-        }
-    }
-    property int hiddenItemSize: units.iconSizes.smallMedium
+    // Used only by AbstractItem, but it's easiest to keep it here since it
+    // uses dimensions from this item to calculate the final value
+    readonly property int itemSize: autoSize ? units.roundToIconSize(Math.min(Math.min(tasksGrid.implicitWidth / rowsOrColumns, tasksGrid.implicitHeight / rowsOrColumns), units.iconSizes.enormous)) : smallIconSize
+
+    // The rest are derived properties; do not modify
+    readonly property bool vertical: plasmoid.formFactor === PlasmaCore.Types.Vertical
+    readonly property bool autoSize: plasmoid.configuration.scaleIconsToFit
+    readonly property int cellThickness: root.vertical ? root.width : root.height
+    readonly property int rowsOrColumns: autoSize ? 1 : Math.max(1, Math.min(tasksGrid.count, Math.floor(cellThickness / (smallIconSize + PlasmaCore.Units.smallSpacing))))
     property alias expanded: dialog.visible
     property Item activeApplet
-    property int status: dialog.visible ? PlasmaCore.Types.RequiresAttentionStatus : PlasmaCore.Types.PassiveStatus
-
     property alias visibleLayout: tasksGrid
     property alias hiddenLayout: expandedRepresentation.hiddenLayout
 
@@ -95,8 +91,7 @@ MouseArea {
 
     CurrentItemHighLight {
         readonly property bool visibleAppletActivated: root.activeApplet && root.activeApplet.parent && root.activeApplet.parent.inVisibleLayout
-        parent: visibleAppletActivated ? root.activeApplet.parent : root
-        target: visibleAppletActivated ? root.activeApplet.parent : root
+        parent: visibleAppletActivated ? root.activeApplet.parent.container : root
         location: plasmoid.location
     }
 
@@ -152,21 +147,33 @@ MouseArea {
 
         GridView {
             id: tasksGrid
+            readonly property int smallSizeCellLength: root.cellThickness >= root.smallIconSize ? root.smallIconSize + units.smallSpacing * 2
+                                                                                               : root.smallIconSize
+            readonly property int totalLength: root.vertical ? cellHeight * Math.ceil(count / root.rowsOrColumns)
+                                                             : cellWidth * Math.ceil(count / root.rowsOrColumns)
+
             Layout.alignment: Qt.AlignCenter
 
             interactive: false //disable features we don't need
             flow: vertical ? GridView.LeftToRight : GridView.TopToBottom
 
-            cellHeight: Math.min(root.itemSize + units.smallSpacing, root.height)
-            cellWidth: Math.min(root.itemSize + units.smallSpacing, root.width)
+            implicitHeight: root.vertical ? totalLength : root.height
+            implicitWidth: !root.vertical ? totalLength : root.width
 
-            readonly property int columns: !vertical ? Math.ceil(count / rows)
-                                           : Math.max(1, Math.floor(root.width / cellWidth))
-            readonly property int rows: vertical ? Math.ceil(count / columns)
-                                           : Math.max(1, Math.floor(root.height / cellHeight))
-
-            implicitHeight: rows * cellHeight
-            implicitWidth: columns * cellWidth
+            cellHeight: {
+                if (root.vertical) {
+                    return root.autoSize ? root.width : smallSizeCellLength
+                } else {
+                    return root.autoSize ? root.height : Math.floor(root.height / root.rowsOrColumns)
+                }
+            }
+            cellWidth: {
+                if (root.vertical) {
+                    return root.autoSize ? root.width : Math.floor(root.width / root.rowsOrColumns)
+                } else {
+                    return root.autoSize ? root.height : smallSizeCellLength
+                }
+            }
 
             model: PlasmaCore.SortFilterModel {
                 sourceModel: plasmoid.nativeInterface.systemTrayModel

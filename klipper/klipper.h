@@ -41,6 +41,7 @@ class QMenu;
 class QMimeData;
 class HistoryItem;
 class KNotification;
+class SystemClipboard;
 
 enum class KlipperMode {
     Standalone,
@@ -81,9 +82,7 @@ public:
     }
 
     void editData(const QSharedPointer<const HistoryItem> &item);
-#ifdef HAVE_PRISON
     void showBarcode(const QSharedPointer<const HistoryItem> &item);
-#endif
 
 public Q_SLOTS:
     void saveSession();
@@ -100,6 +99,10 @@ protected:
      * a boolean true as a mode.
      */
     enum SelectionMode { Clipboard = 2, Selection = 4 };
+    enum class ClipboardUpdateReason {
+        UpdateClipboard,
+        PreventEmptyClipboard
+    };
 
     /**
      * Loads history from disk.
@@ -123,7 +126,7 @@ protected:
      */
     QSharedPointer<HistoryItem> applyClipChanges( const QMimeData* data );
 
-    void setClipboard( const HistoryItem& item, int mode );
+    void setClipboard( const HistoryItem& item, int mode, ClipboardUpdateReason updateReason = ClipboardUpdateReason::UpdateClipboard);
     bool ignoreClipboardChanges() const;
 
     KSharedConfigPtr config() const { return m_config; }
@@ -159,7 +162,7 @@ private:
 
     static void updateTimestamp();
 
-    QClipboard* m_clip;
+    SystemClipboard* m_clip;
 
     QElapsedTimer m_showTimer;
 
@@ -171,9 +174,7 @@ private:
     QAction* m_clearHistoryAction;
     QAction* m_repeatAction;
     QAction* m_editAction;
-#ifdef HAVE_PRISON
     QAction* m_showBarcodeAction;
-#endif
     QAction* m_configureAction;
     QAction* m_quitAction;
     QAction* m_cycleNextAction;

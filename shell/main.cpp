@@ -21,17 +21,20 @@
 #include <QApplication>
 #include <QCommandLineParser>
 #include <QQuickWindow>
+#include <QSessionManager>
 #include <QDebug>
 #include <QProcess>
 #include <QMessageBox>
 #include <QDBusConnection>
 #include <QDBusMessage>
 #include <QtQml/QQmlDebuggingEnabler>
+#include <QLoggingCategory>
 
 #include <KAboutData>
 #include <KQuickAddons/QtQuickSettings>
+
 #ifdef WITH_KUSERFEEDBACKCORE
-#include <KUserFeedback/Provider>
+#include "userfeedback.h"
 #endif
 
 #include <kdbusservice.h>
@@ -46,6 +49,21 @@
 
 #include <QDir>
 #include <QDBusConnectionInterface>
+
+static QLoggingCategory::CategoryFilter oldCategoryFilter;
+
+// Qt 5.15 introduces a new syntax for connections
+// framework code can't port away due to needing Qt5.12
+// this filters out the warnings
+// Remove this once we depend on Qt5.15 in frameworks
+void filterConnectionSyntaxWarning(QLoggingCategory *category)
+{
+    if (qstrcmp(category->categoryName(), "qt.qml.connections") == 0) {
+        category->setEnabled(QtWarningMsg, false);
+    } else if (oldCategoryFilter) {
+        oldCategoryFilter(category);
+    }
+}
 
 int main(int argc, char *argv[])
 {
@@ -66,9 +84,10 @@ int main(int argc, char *argv[])
     } else {
         QCoreApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
     }
-    QCoreApplication::setAttribute(Qt::AA_DisableSessionManager);
 
     QQuickWindow::setDefaultAlphaBuffer(true);
+
+    oldCategoryFilter = QLoggingCategory::installFilter(filterConnectionSyntaxWarning);
 
     const bool qpaVariable = qEnvironmentVariableIsSet("QT_QPA_PLATFORM");
     KWorkSpace::detectPlatform(argc, argv);
@@ -143,12 +162,21 @@ int main(int argc, char *argv[])
     cliOptions.process(app);
     aboutData.processCommandLine(&cliOptions);
 
+    QGuiApplication::setFallbackSessionManagementEnabled(false);
+
+    auto disableSessionManagement = [](QSessionManager &sm) {
+        sm.setRestartHint(QSessionManager::RestartNever);
+    };
+    QObject::connect(&app, &QGuiApplication::commitDataRequest, disableSessionManagement);
+    QObject::connect(&app, &QGuiApplication::saveStateRequest, disableSessionManagement);
+
     ShellCorona* corona = new ShellCorona(&app);
     corona->setShell(cliOptions.value(shellPluginOption));
 
 #ifdef WITH_KUSERFEEDBACKCORE
+    auto userFeedback = new UserFeedback(corona, &app);
     if (cliOptions.isSet(feedbackOption)) {
-        QTextStream(stdout) << corona->feedbackProvider()->describeDataSources();
+        QTextStream(stdout) << userFeedback->describeDataSources();
         return 0;
     }
 #endif

@@ -52,9 +52,9 @@
 #include "historystringitem.h"
 #include "klipperpopup.h"
 
-#ifdef HAVE_PRISON
+#include "systemclipboard.h"
+
 #include <prison/Prison>
-#endif
 
 #include <config-X11.h>
 #if HAVE_X11
@@ -102,10 +102,9 @@ Klipper::Klipper(QObject* parent, const KSharedConfigPtr& config, KlipperMode mo
     QDBusConnection::sessionBus().registerObject(QStringLiteral("/klipper"), this, QDBusConnection::ExportScriptableSlots);
 
     updateTimestamp(); // read initial X user time
-    m_clip = qApp->clipboard();
+    m_clip = SystemClipboard::instance();
 
-    connect( m_clip, &QClipboard::changed,
-             this, &Klipper::newClipData );
+    connect( m_clip, &SystemClipboard::changed, this, &Klipper::newClipData );
 
     connect( &m_overflowClearTimer, &QTimer::timeout, this, &Klipper::slotClearOverflow);
 
@@ -182,7 +181,6 @@ Klipper::Klipper(QObject* parent, const KSharedConfigPtr& config, KlipperMode mo
         }
     );
 
-#ifdef HAVE_PRISON
     // add barcode for mobile phones
     m_showBarcodeAction = m_collection->addAction(QStringLiteral("show-barcode"));
     m_showBarcodeAction->setText(i18n("&Show Barcode..."));
@@ -192,7 +190,6 @@ Klipper::Klipper(QObject* parent, const KSharedConfigPtr& config, KlipperMode mo
             showBarcode(m_history->first());
         }
     );
-#endif
 
     // Cycle through history
     m_cycleNextAction = m_collection->addAction(QStringLiteral("cycleNextAction"));
@@ -219,9 +216,7 @@ Klipper::Klipper(QObject* parent, const KSharedConfigPtr& config, KlipperMode mo
         m_popup->plugAction( m_configureAction );
         m_popup->plugAction( m_repeatAction );
         m_popup->plugAction( m_editAction );
-#ifdef HAVE_PRISON
         m_popup->plugAction( m_showBarcodeAction );
-#endif
         m_popup->plugAction( m_quitAction );
     }
 
@@ -516,6 +511,8 @@ void Klipper::slotConfigure()
     }
 
     ConfigDialog *dlg = new ConfigDialog( nullptr, KlipperSettings::self(), this, m_collection );
+    QMetaObject::invokeMethod(dlg, "setHelp", Qt::DirectConnection, Q_ARG(QString, QString::fromLatin1("")), Q_ARG(QString, QString::fromLatin1("klipper")));
+
     connect(dlg, &KConfigDialog::settingsChanged, this, &Klipper::loadSettings);
 
     dlg->show();
@@ -717,17 +714,18 @@ void Klipper::checkClipData( bool selectionMode )
     qCDebug(KLIPPER_LOG) << "Checking clip data";
 
     const QMimeData* data = m_clip->mimeData( selectionMode ? QClipboard::Selection : QClipboard::Clipboard );
-    if ( !data ) {
-        qCWarning(KLIPPER_LOG) << "No data in clipboard. This not not supposed to happen.";
-        return;
-    }
 
+    bool clipEmpty = false;
     bool changed = true; // ### FIXME (only relevant under polling, might be better to simply remove polling and rely on XFixes)
-    bool clipEmpty = data->formats().isEmpty();
-    if (clipEmpty) {
-        // Might be a timeout. Try again
+    if ( !data ) {
+        clipEmpty = true;
+    } else {
         clipEmpty = data->formats().isEmpty();
-        qCDebug(KLIPPER_LOG) << "was empty. Retried, now " << (clipEmpty?" still empty":" no longer empty");
+        if (clipEmpty) {
+            // Might be a timeout. Try again
+            clipEmpty = data->formats().isEmpty();
+            qCDebug(KLIPPER_LOG) << "was empty. Retried, now " << (clipEmpty?" still empty":" no longer empty");
+        }
     }
 
     if ( changed && clipEmpty && m_bNoNullClipboard ) {
@@ -735,8 +733,10 @@ void Klipper::checkClipData( bool selectionMode )
         if ( top ) {
             // keep old clipboard after someone set it to null
             qCDebug(KLIPPER_LOG) << "Resetting clipboard (Prevent empty clipboard)";
-            setClipboard( *top, selectionMode ? Selection : Clipboard );
+            setClipboard( *top, selectionMode ? Selection : Clipboard, ClipboardUpdateReason::PreventEmptyClipboard);
         }
+        return;
+    } else if (clipEmpty) {
         return;
     }
 
@@ -787,7 +787,7 @@ void Klipper::checkClipData( bool selectionMode )
     }
 }
 
-void Klipper::setClipboard( const HistoryItem& item, int mode )
+void Klipper::setClipboard( const HistoryItem& item, int mode , ClipboardUpdateReason updateReason)
 {
     Ignore lock( m_locklevel );
 
@@ -795,11 +795,19 @@ void Klipper::setClipboard( const HistoryItem& item, int mode )
 
     if ( mode & Selection ) {
         qCDebug(KLIPPER_LOG) << "Setting selection to <" << item.text() << ">";
-        m_clip->setMimeData( item.mimeData(), QClipboard::Selection );
+        QMimeData *mimeData = item.mimeData();
+        if (updateReason == ClipboardUpdateReason::PreventEmptyClipboard) {
+            mimeData->setData(QStringLiteral("application/x-kde-onlyReplaceEmpty"), "1");
+        }
+        m_clip->setMimeData( mimeData, QClipboard::Selection );
     }
     if ( mode & Clipboard ) {
         qCDebug(KLIPPER_LOG) << "Setting clipboard to <" << item.text() << ">";
-        m_clip->setMimeData( item.mimeData(), QClipboard::Clipboard );
+        QMimeData *mimeData = item.mimeData();
+        if (updateReason == ClipboardUpdateReason::PreventEmptyClipboard) {
+            mimeData->setData(QStringLiteral("application/x-kde-onlyReplaceEmpty"), "1");
+        }
+        m_clip->setMimeData( mimeData, QClipboard::Clipboard );
     }
 
 }
@@ -922,7 +930,6 @@ void Klipper::editData(const QSharedPointer< const HistoryItem > &item)
     }
 }
 
-#ifdef HAVE_PRISON
 class BarcodeLabel : public QLabel
 {
 public:
@@ -989,7 +996,6 @@ void Klipper::showBarcode(const QSharedPointer< const HistoryItem > &item)
         dlg->open();
     }
 }
-#endif //HAVE_PRISON
 
 void Klipper::slotAskClearHistory()
 {

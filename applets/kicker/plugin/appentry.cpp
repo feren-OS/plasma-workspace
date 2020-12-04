@@ -38,7 +38,7 @@
 #include <KJob>
 #include <KIO/ApplicationLauncherJob>
 #include <KLocalizedString>
-#include <KMimeTypeTrader>
+#include <KApplicationTrader>
 #include <KNotificationJobUiDelegate>
 #include <KRun>
 #include <KSycoca>
@@ -64,6 +64,15 @@ AppEntry::AppEntry(AbstractModel *owner, const QString &id) : AbstractEntry(owne
     if (url.scheme() == QLatin1String("preferred")) {
         m_service = defaultAppByName(url.host());
         m_id = id;
+        m_con = QObject::connect(KSycoca::self(), QOverload<>::of(&KSycoca::databaseChanged), owner, [this, owner, id](){
+            KSharedConfig::openConfig()->reparseConfiguration();
+            m_service = defaultAppByName(QUrl(id).host());
+            if (m_service) {
+                init((NameFormat)owner->rootModel()->property("appNameFormat").toInt());
+                m_icon = QIcon();
+                Q_EMIT owner->layoutChanged();
+            }
+        });
     } else {
         m_service = KService::serviceByStorageId(id);
     }
@@ -225,7 +234,7 @@ bool AppEntry::run(const QString& actionId, const QVariant &argument)
     QObject *appletInterface = m_owner->rootModel()->property("appletInterface").value<QObject *>();
 
     if (Kicker::handleAddLauncherAction(actionId, appletInterface, m_service)) {
-        return true;
+        return false; // We don't want to close Kicker, BUG: 390585
     } else if (Kicker::handleEditApplicationAction(actionId, m_service)) {
         return true;
     } else if (Kicker::handleAppstreamActions(actionId, argument)) {
@@ -264,7 +273,7 @@ KService::Ptr AppEntry::defaultAppByName(const QString& name)
         QString browser = config.readPathEntry("BrowserApplication", QString());
 
         if (browser.isEmpty()) {
-            return KMimeTypeTrader::self()->preferredService(QLatin1String("text/html"));
+            return KApplicationTrader::preferredService(QLatin1String("text/html"));
         } else if (browser.startsWith(QLatin1Char('!'))) {
             browser.remove(0, 1);
         }
@@ -273,6 +282,12 @@ KService::Ptr AppEntry::defaultAppByName(const QString& name)
     }
 
     return KService::Ptr();
+}
+
+AppEntry::~AppEntry() {
+    if (m_con){
+        QObject::disconnect(m_con);
+    }
 }
 
 AppGroupEntry::AppGroupEntry(AppsModel *parentModel, KServiceGroup::Ptr group,

@@ -43,7 +43,6 @@
 #include <KLocalizedString>
 #include <KNotificationJobUiDelegate>
 #include <KProtocolManager>
-#include <KRun>
 #include <KService>
 #include <KServiceAction>
 
@@ -51,6 +50,7 @@
 #include <KIO/DropJob>
 #include <KIO/FavIconRequestJob>
 #include <KIO/OpenFileManagerWindowJob>
+#include <KIO/OpenUrlJob>
 #include <KIO/StatJob>
 
 #include <startuptasksmodel.h>
@@ -432,7 +432,10 @@ void IconApplet::run()
         connect(m_startupTasksModel, &QAbstractItemModel::rowsAboutToBeRemoved, this, std::bind(handleRow, false /*busy*/, _1, _2, _3));
     }
 
-    new KRun(QUrl::fromLocalFile(m_localPath), QApplication::desktop());
+    KIO::OpenUrlJob* job = new KIO::OpenUrlJob(QUrl::fromLocalFile(m_localPath));
+    job->setRunExecutables(true); // so it can launch apps
+    job->setUiDelegate(new KNotificationJobUiDelegate(KJobUiDelegate::AutoHandlingEnabled));
+    job->start();
 }
 
 void IconApplet::processDrop(QObject *dropEvent)
@@ -449,12 +452,15 @@ void IconApplet::processDrop(QObject *dropEvent)
     const QString &localPath = m_url.toLocalFile();
 
     if (KDesktopFile::isDesktopFile(localPath)) {
-        KService::Ptr service(new KService(localPath));
-        auto *job = new KIO::ApplicationLauncherJob(service);
-        job->setUrls(urls);
-        job->setUiDelegate(new KNotificationJobUiDelegate(KJobUiDelegate::AutoHandlingEnabled));
-        job->start();
-        return;
+        auto service = new KService(localPath);
+
+        if (service->isApplication()) {
+            KIO::ApplicationLauncherJob* job = new KIO::ApplicationLauncherJob(KService::Ptr(service));
+            job->setUrls(urls);
+            job->setUiDelegate(new KNotificationJobUiDelegate(KJobUiDelegate::AutoHandlingEnabled));
+            job->start();
+            return;
+        }
     }
 
     QMimeDatabase db;

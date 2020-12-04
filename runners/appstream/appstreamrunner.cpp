@@ -29,17 +29,16 @@
 
 #include <KLocalizedString>
 #include <KApplicationTrader>
+#include <KSycoca>
 
 #include "debug.h"
 
-K_EXPORT_PLASMA_RUNNER(installer, InstallerRunner)
+K_EXPORT_PLASMA_RUNNER_WITH_JSON(InstallerRunner, "plasma-runner-appstream.json")
 
 InstallerRunner::InstallerRunner(QObject *parent, const QVariantList &args)
     : Plasma::AbstractRunner(parent, args)
 {
-    Q_UNUSED(args)
-
-    setObjectName("Installation Suggestions");
+    setObjectName(QStringLiteral("Installation Suggestions"));
     setPriority(AbstractRunner::HighestPriority);
 
     addSyntax(Plasma::RunnerSyntax(":q:", i18n("Looks for non-installed components according to :q:")));
@@ -88,6 +87,10 @@ void InstallerRunner::match(Plasma::RunnerContext &context)
         if (component.kind() != AppStream::Component::KindDesktopApp)
             continue;
 
+        // KApplicationTrader uses KService which uses KSycoca which holds
+        // KDirWatch instances to monitor changes. We don't need this on
+        // our runner threads - let's not needlessly allocate inotify instances.
+        KSycoca::disableAutoRebuild();
         const QString componentId = component.id();
         const auto servicesFound = KApplicationTrader::query([&componentId] (const KService::Ptr &service) {
             if (service->exec().isEmpty())

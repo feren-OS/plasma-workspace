@@ -76,6 +76,7 @@ void KillRunnerConfig::save()
     grp.writeEntry(CONFIG_USE_TRIGGERWORD, m_ui->useTriggerWord->isChecked());
     grp.writeEntry(CONFIG_TRIGGERWORD, m_ui->triggerWord->text());
     grp.writeEntry(CONFIG_SORTING, m_ui->sorting->itemData(m_ui->sorting->currentIndex()));
+    grp.sync();
 
     emit changed(false);
 }
@@ -88,7 +89,7 @@ void KillRunnerConfig::defaults()
     m_ui->triggerWord->setText(i18n("kill"));
     m_ui->sorting->setCurrentIndex(m_ui->sorting->findData((int) NONE));
 
-    emit markAsChanged();
+    markAsChanged();
 }
 
 #include "killrunner_config.moc"

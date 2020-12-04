@@ -33,6 +33,8 @@
 
 #include <unistd.h>
 
+#include <updatelaunchenvjob.h>
+
 #include "startplasma.h"
 
 QTextStream out(stderr);
@@ -128,27 +130,11 @@ void runStartupConfig()
     KConfig config(QStringLiteral("plasma-localerc"));
     KConfigGroup formatsConfig = KConfigGroup(&config, "Formats");
 
-    // In case we don't have a value in the config file, but in the ENV variables, write it
-    if (!formatsConfig.hasKey("LANG") && !qEnvironmentVariableIsEmpty("LANG")) {
-        formatsConfig.writeEntry("LANG", qgetenv("LANG"));
-        formatsConfig.sync();
-    }
-
-    const auto explicitLCValues = { "LANG", "LC_COLLATE", "LC_CTYPE" };
-    const auto detailedLCValues = { "LC_NUMERIC", "LC_TIME", "LC_MONETARY", "LC_MEASUREMENT" };
-    const QString lcLang =  formatsConfig.readEntry("LANG");
-    const bool useDetailed = formatsConfig.readEntry("useDetailed", false);
-
-    // These values have to explicitly set
-    for (auto lc : explicitLCValues) {
-        const QString value = formatsConfig.readEntry(lc);
-        if (!value.isEmpty()) {
-            qputenv(lc, value.toUtf8());
-        }
-    }
-    // If we have the "Detailed Settings" checkbox unchecked we want to use the value from the LANG entry
-    for (auto lc : detailedLCValues) {
-        const QString value = useDetailed ? formatsConfig.readEntry(lc) : lcLang;
+    const auto lcValues = {
+        "LANG", "LC_NUMERIC", "LC_TIME", "LC_MONETARY", "LC_MEASUREMENT", "LC_COLLATE", "LC_CTYPE"
+    };
+    for (auto lc : lcValues) {
+        const QString value = formatsConfig.readEntry(lc, QString());
         if (!value.isEmpty()) {
             qputenv(lc, value.toUtf8());
         }
@@ -158,6 +144,11 @@ void runStartupConfig()
     const QString value = languageConfig.readEntry("LANGUAGE", QString());
     if (!value.isEmpty()) {
         qputenv("LANGUAGE", value.toUtf8());
+    }
+
+    if (!formatsConfig.hasKey("LANG") && !qEnvironmentVariableIsEmpty("LANG")) {
+        formatsConfig.writeEntry("LANG", qgetenv("LANG"));
+        formatsConfig.sync();
     }
 }
 
@@ -219,7 +210,7 @@ void runEnvironmentScripts()
             continue;
         }
         const auto dirScripts = dir.entryInfoList({QStringLiteral("*.sh")}, QDir::Files, QDir::Name);
-        for (const auto script : dirScripts) {
+        for (const auto &script : dirScripts) {
             scripts << script.absoluteFilePath();
         }
     }
@@ -295,14 +286,9 @@ void cleanupPlasmaEnvironment()
 // In that case, the update in startplasma might be too late.
 bool syncDBusEnvironment()
 {
-    int exitCode;
     // At this point all environment variables are set, let's send it to the DBus session server to update the activation environment
-    if (!QStandardPaths::findExecutable(QStringLiteral("dbus-update-activation-environment")).isEmpty()) {
-        exitCode = runSync(QStringLiteral("dbus-update-activation-environment"), { QStringLiteral("--systemd"), QStringLiteral("--all") });
-    } else {
-        exitCode = runSync(QStringLiteral(CMAKE_INSTALL_FULL_LIBEXECDIR "/ksyncdbusenv"), {});
-    }
-    return exitCode == 0;
+    auto job =  new UpdateLaunchEnvJob(QProcessEnvironment::systemEnvironment());
+    return job->exec();
 }
 
 void setupFontDpi()
@@ -343,17 +329,6 @@ QProcess* setupKSplash()
         }
     }
     return p;
-}
-
-void setupGSLib()
-// Get Ghostscript to look into user's KDE fonts dir for additional Fontmap
-{
-    const QByteArray usr_fdir = QFile::encodeName(QDir::home().absoluteFilePath(QStringLiteral(".fonts")));
-    if (qEnvironmentVariableIsSet("GS_LIB")) {
-        qputenv("GS_LIB", usr_fdir + ':' + qgetenv("GS_LIB"));
-    } else {
-        qputenv("GS_LIB", usr_fdir);
-    }
 }
 
 bool startPlasmaSession(bool wayland)

@@ -3,6 +3,9 @@ add_definitions(-DTRANSLATION_DOMAIN=\"klipper\")
 add_definitions("-DQT_NO_CAST_FROM_ASCII -DQT_NO_CAST_TO_ASCII")
 add_definitions(-DQT_NO_NARROWING_CONVERSIONS_IN_CONNECT)
 add_definitions(-DQT_NO_URL_CAST_FROM_STRING)
+
+add_subdirectory(systemclipboard)
+
 set(libklipper_common_SRCS
     klipper.cpp
     urlgrabber.cpp
@@ -22,21 +25,12 @@ set(libklipper_common_SRCS
 
 ecm_qt_declare_logging_category(libklipper_common_SRCS HEADER klipper_debug.h IDENTIFIER KLIPPER_LOG CATEGORY_NAME org.kde.klipper)
 
-find_package(KF5Prison ${KF5_MIN_VERSION})
-set_package_properties(KF5Prison PROPERTIES DESCRIPTION "Prison library"
-                       URL "https://commits.kde.org/prison"
-                       TYPE OPTIONAL
-                       PURPOSE "Needed to create mobile barcodes from clipboard data"
-                      )
-
-set(HAVE_PRISON ${KF5Prison_FOUND})
 configure_file(config-klipper.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/config-klipper.h )
 
 ki18n_wrap_ui(libklipper_common_SRCS generalconfig.ui actionsconfig.ui editactiondialog.ui)
 kconfig_add_kcfg_files(libklipper_common_SRCS klippersettings.kcfgc)
 
 set(klipper_KDEINIT_SRCS ${libklipper_common_SRCS} main.cpp tray.cpp)
-
 
 kf5_add_kdeinit_executable(klipper ${klipper_KDEINIT_SRCS})
 
@@ -49,18 +43,17 @@ target_link_libraries(kdeinit_klipper
     KF5::KIOWidgets
     KF5::Notifications
     KF5::Service
+    KF5::Prison
     KF5::TextWidgets
     KF5::WindowSystem
     KF5::WidgetsAddons
     KF5::XmlGui
     ${ZLIB_LIBRARY}
+    systemclipboard
 )
 if (X11_FOUND)
   target_link_libraries(kdeinit_klipper XCB::XCB Qt5::X11Extras)
 endif()
-if (HAVE_PRISON)
-  target_link_libraries(kdeinit_klipper KF5::Prison)
-endif ()
 
 install(TARGETS kdeinit_klipper ${KDE_INSTALL_TARGETS_DEFAULT_ARGS})
 install(TARGETS klipper         ${KDE_INSTALL_TARGETS_DEFAULT_ARGS})
@@ -83,18 +76,17 @@ target_link_libraries(plasma_engine_clipboard
     KF5::Plasma
     KF5::Notifications
     KF5::Service
+    KF5::Prison
     KF5::TextWidgets   # KTextEdit
     KF5::WidgetsAddons # KMessageBox
     KF5::WindowSystem
     KF5::XmlGui        # KActionCollection
     ${ZLIB_LIBRARY}
+    systemclipboard
 )
 if (X11_FOUND)
   target_link_libraries(plasma_engine_clipboard XCB::XCB Qt5::X11Extras)
 endif()
-if (HAVE_PRISON)
-  target_link_libraries(plasma_engine_clipboard KF5::Prison)
-endif ()
 install(TARGETS plasma_engine_clipboard DESTINATION ${KDE_INSTALL_PLUGINDIR}/plasma/dataengine)
 install(FILES plasma-dataengine-clipboard.desktop DESTINATION ${KDE_INSTALL_KSERVICES5DIR})
 install(FILES org.kde.plasma.clipboard.operations DESTINATION ${PLASMA_DATA_INSTALL_DIR}/services)

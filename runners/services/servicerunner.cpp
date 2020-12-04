@@ -1,7 +1,7 @@
 /*
  *   Copyright (C) 2006 Aaron Seigo <aseigo@kde.org>
  *   Copyright (C) 2014 Vishesh Handa <vhanda@kde.org>
- *   Copyright (C) 2016 Harald Sitter <sitter@kde.org>
+ *   Copyright (C) 2016-2020 Harald Sitter <sitter@kde.org>
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU Library General Public License version 2 as
@@ -37,6 +37,7 @@
 #include <KServiceAction>
 #include <KServiceTypeTrader>
 #include <KStringHandler>
+#include <KSycoca>
 
 #include <KIO/ApplicationLauncherJob>
 
@@ -66,6 +67,8 @@ public:
         if (!context.isValid()) {
             return;
         }
+
+        KSycoca::disableAutoRebuild();
 
         term = context.query();
         weightedTermLength = weightedLength(term);
@@ -286,20 +289,26 @@ private:
                 }
             }
 
-            if (service->categories().contains(QLatin1String("KDE")) || service->serviceTypes().contains(QLatin1String("KCModule"))) {
+            const bool isKCM = service->serviceTypes().contains(QLatin1String("KCModule"));
+            if (!isKCM && (service->categories().contains(QLatin1String("KDE")) || service->serviceTypes().contains(QLatin1String("KCModule")))) {
                 qCDebug(RUNNER_SERVICES) << "found a kde thing" << id << match.subtext() << relevance;
                 relevance += .09;
             }
 
-            qCDebug(RUNNER_SERVICES) << service->name() << "is this relevant:" << relevance;
-            match.setRelevance(relevance);
-            if (service->serviceTypes().contains(QLatin1String("KCModule"))) {
+            if (isKCM) {
                 if (service->parentApp() == QStringLiteral("kinfocenter")) {
                     match.setMatchCategory(i18n("System Information"));
                 } else {
                     match.setMatchCategory(i18n("System Settings"));
                 }
+                // KCMs are, on the balance, less relevant. Drop it ever so much. So they may get outscored
+                // by an otherwise equally applicable match.
+                relevance -= .001;
             }
+
+            qCDebug(RUNNER_SERVICES) << service->name() << "is this relevant:" << relevance;
+            match.setRelevance(relevance);
+
             matches << match;
         }
     }
@@ -404,9 +413,7 @@ private:
 ServiceRunner::ServiceRunner(QObject *parent, const QVariantList &args)
     : Plasma::AbstractRunner(parent, args)
 {
-    Q_UNUSED(args)
-
-    setObjectName( QStringLiteral("Application" ));
+    setObjectName(QStringLiteral("Application"));
     setPriority(AbstractRunner::HighestPriority);
 
     addSyntax(Plasma::RunnerSyntax(QStringLiteral(":q:"), i18n("Finds applications whose name or description match :q:")));
@@ -416,10 +423,7 @@ ServiceRunner::~ServiceRunner() = default;
 
 QStringList ServiceRunner::categories() const
 {
-    QStringList cat;
-    cat << i18n("Applications") << i18n("System Settings");
-
-    return cat;
+    return {i18n("Applications"), i18n("System Settings")};
 }
 
 QIcon ServiceRunner::categoryIcon(const QString& category) const
@@ -444,7 +448,7 @@ void ServiceRunner::match(Plasma::RunnerContext &context)
 
 void ServiceRunner::run(const Plasma::RunnerContext &context, const Plasma::QueryMatch &match)
 {
-    Q_UNUSED(context);
+    Q_UNUSED(context)
 
     const QUrl dataUrl = match.data().toUrl();
 
@@ -464,12 +468,13 @@ void ServiceRunner::run(const Plasma::RunnerContext &context, const Plasma::Quer
     if (actionName.isEmpty()) {
         // We want to load kcms directly with systemsettings,
         // but we can't completely replace kcmshell with systemsettings
-        // as we need to be able to load kcms without plasma and we can't 
+        // as we need to be able to load kcms without plasma and we can't
         // implement all kcmshell features into systemsettings
         if (service->serviceTypes().contains(QLatin1String("KCModule"))) {
             if (service->parentApp() == QStringLiteral("kinfocenter")) {
                 service->setExec(QStringLiteral("kinfocenter ") + service->desktopEntryName());
-            } else {
+            // We can't display a KCM in systemsettings if it has no parent, BUG: 423612
+            } else if (!service->property("X-KDE-System-Settings-Parent-Category").toString().isEmpty()) {
                 service->setExec(QStringLiteral("systemsettings5 ") + service->desktopEntryName());
             }
         }

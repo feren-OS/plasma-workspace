@@ -24,7 +24,6 @@ import QtQuick 2.0
 import QtQuick.Layouts 1.1
 import org.kde.plasma.plasmoid 2.0
 import org.kde.plasma.core 2.0 as PlasmaCore
-import org.kde.plasma.components 2.0 as PlasmaComponents
 import org.kde.plasma.extras 2.0 as PlasmaExtras
 
 import org.kde.kquickcontrolsaddons 2.0
@@ -32,7 +31,7 @@ import org.kde.kquickcontrolsaddons 2.0
 Item {
     id: devicenotifier
 
-    readonly property string automounterKcmName: "device_automounter_kcm"
+    readonly property bool openAutomounterKcmAuthorized: KCMShell.authorize("device_automounter_kcm.desktop").length > 0
 
     property string devicesType: {
         if (plasmoid.configuration.allDevices) {
@@ -43,7 +42,6 @@ Item {
             return "nonRemovable"
         }
     }
-    property string expandedDevice
     property string popupIcon: "device-notifier"
 
     property bool itemClicked: false
@@ -128,9 +126,6 @@ Item {
         }
 
         onSourceRemoved: {
-            if (expandedDevice == source) {
-                expandedDevice = "";
-            }
             disconnectSource(source);
             var index = devicenotifier.connectedRemovables.indexOf(source);
             if (index >= 0) {
@@ -172,13 +167,13 @@ Item {
         }
 
         function processLastDevice(expand) {
-            if (last) {
-                if (isViableDevice(last)) {
-                    if (expand && hpSource.data[last].added) {
-                        expandDevice(last);
-                    }
-                    last = "";
+            if (last && isViableDevice(last)) {
+                if (expand && hpSource.data[last] && hpSource.data[last].added) {
+                    devicenotifier.popupIcon = "preferences-desktop-notification";
+                    expandTimer.restart();
+                    popupIconTimer.restart();
                 }
+                last = "";
             }
         }
     }
@@ -235,13 +230,13 @@ Item {
             Plasmoid.status = PlasmaCore.Types.PassiveStatus;
         }
 
-        if (KCMShell.authorize(devicenotifier.automounterKcmName + ".desktop").length > 0) {
+        if (devicenotifier.openAutomounterKcmAuthorized) {
             plasmoid.setAction("openAutomounterKcm", i18nc("Open auto mounter kcm", "Configure Removable Devices"), "drive-removable-media")
         }
     }
 
     function action_openAutomounterKcm() {
-        KCMShell.open([devicenotifier.automounterKcmName])
+        KCMShell.openSystemSettings("device_automounter_kcm")
     }
 
     Plasmoid.onExpandedChanged: {
@@ -253,24 +248,8 @@ Item {
             // reset the property that lets us remember if an item was clicked
             // (versus only hovered) for autohide purposes
             devicenotifier.itemClicked = true;
-            expandedDevice = "";
             devicenotifier.currentIndex = -1;
         }
-    }
-
-    function expandDevice(udi) {
-        if (hpSource.data[udi]["actions"].length > 1) {
-            expandedDevice = udi
-        }
-
-        // reset the property that lets us remember if an item was clicked
-        // (versus only hovered) for autohide purposes
-        devicenotifier.itemClicked = false;
-
-        devicenotifier.popupIcon = "preferences-desktop-notification";
-        //plasmoid.expanded = true;
-        expandTimer.restart();
-        popupIconTimer.restart()
     }
 
     function isMounted(udi) {
@@ -296,6 +275,10 @@ Item {
         id: expandTimer
         interval: 250
         onTriggered: {
+            // We don't show a UI for it, but there is a hidden option to not
+            // show the popup on new device attachment if the user has added
+            // the text "popupOnNewDevice=false" to their
+            // plasma-org.kde.plasma.desktop-appletsrc file.
             if (plasmoid.configuration.popupOnNewDevice) { // Bug 351592
                 plasmoid.expanded = true;
                 plasmoid.fullRepresentationItem.spontaneousOpen = true;

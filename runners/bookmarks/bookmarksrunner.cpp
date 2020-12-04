@@ -19,7 +19,7 @@
  */
 
 #include "bookmarksrunner.h"
-#include "browser.h"
+#include "browsers/browser.h"
 
 #include <QList>
 #include <QStack>
@@ -29,23 +29,20 @@
 #include <QDesktopServices>
 
 #include <KLocalizedString>
-#include <KMimeTypeTrader>
-#include <KToolInvocation>
+#include <KApplicationTrader>
 #include <KSharedConfig>
 
 #include "bookmarkmatch.h"
 #include "browserfactory.h"
 #include "bookmarksrunner_defs.h"
 
-K_EXPORT_PLASMA_RUNNER(bookmarksrunner, BookmarksRunner)
+K_EXPORT_PLASMA_RUNNER_WITH_JSON(BookmarksRunner, "plasma-runner-bookmarks.json")
 
 
 BookmarksRunner::BookmarksRunner( QObject* parent, const QVariantList &args )
     : Plasma::AbstractRunner(parent, args), m_browser(nullptr), m_browserFactory(new BrowserFactory(this))
 {
-    Q_UNUSED(args)
-    //qDebug() << "Creating BookmarksRunner";
-    setObjectName( QStringLiteral("Bookmarks" ));
+    setObjectName(QStringLiteral("Bookmarks"));
     addSyntax(Plasma::RunnerSyntax(QStringLiteral(":q:"), i18n("Finds web browser bookmarks matching :q:.")));
     setDefaultSyntax(Plasma::RunnerSyntax(i18nc("list of all web browser bookmarks", "bookmarks"),
                                    i18n("List all web browser bookmarks")));
@@ -53,10 +50,7 @@ BookmarksRunner::BookmarksRunner( QObject* parent, const QVariantList &args )
     connect(this, &Plasma::AbstractRunner::prepare, this, &BookmarksRunner::prep);
 }
 
-BookmarksRunner::~BookmarksRunner()
-{
-}
-
+BookmarksRunner::~BookmarksRunner() = default;
 
 void BookmarksRunner::prep()
 {
@@ -69,11 +63,8 @@ void BookmarksRunner::prep()
     m_browser->prepare();
 }
 
-
-
 void BookmarksRunner::match(Plasma::RunnerContext &context)
 {
-    if(! m_browser) return;
     const QString term = context.query();
     if ((term.length() < 3) && (!context.singleRunnerQueryMode())) {
         return;
@@ -97,7 +88,7 @@ QString BookmarksRunner::findBrowserName()
     QString exec = config.readPathEntry(QStringLiteral("BrowserApplication"), QString());
     //qDebug() << "Found exec string: " << exec;
     if (exec.isEmpty()) {
-        KService::Ptr service = KMimeTypeTrader::self()->preferredService(QStringLiteral("text/html"));
+        KService::Ptr service = KApplicationTrader::preferredService(QStringLiteral("text/html"));
         if (service) {
             exec = service->exec();
         }

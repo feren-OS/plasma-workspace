@@ -55,9 +55,9 @@
 #define _SYSTEMD_SERVICE "org.freedesktop.login1"
 #define _SYSTEMD_BASE_PATH "/org/freedesktop/login1"
 #define _SYSTEMD_MANAGER_IFACE _SYSTEMD_SERVICE ".Manager"
-#define _SYSTEMD_SESSION_BASE_PATH _SYSTEMD_BASE_PATH "/Session"
+#define _SYSTEMD_SESSION_BASE_PATH _SYSTEMD_BASE_PATH "/session"
 #define _SYSTEMD_SEAT_IFACE _SYSTEMD_SERVICE ".Seat"
-#define _SYSTEMD_SEAT_BASE_PATH _SYSTEMD_BASE_PATH "/Seat"
+#define _SYSTEMD_SEAT_BASE_PATH _SYSTEMD_BASE_PATH "/seat"
 #define _SYSTEMD_SESSION_IFACE _SYSTEMD_SERVICE ".Session"
 #define _SYSTEMD_USER_PROPERTY "User"
 #define _SYSTEMD_SEAT_PROPERTY "Seat"
@@ -303,11 +303,10 @@ KDisplayManager::KDisplayManager() : d(new Private)
     qDBusRegisterMetaType<NumberedDBusObjectPath>();
 
     if (DMType == Dunno) {
-        if (!(dpy = ::getenv("DISPLAY")))
-            DMType = NoDM;
-        else if ((ctl = ::getenv("DM_CONTROL")))
+        dpy = ::getenv("DISPLAY");
+        if (dpy && (ctl = ::getenv("DM_CONTROL")))
             DMType = NewKDM;
-        else if ((ctl = ::getenv("XDM_MANAGED")) && ctl[0] == '/')
+        else if (dpy && (ctl = ::getenv("XDM_MANAGED")) && ctl[0] == '/')
             DMType = OldKDM;
         else if (::getenv("XDG_SEAT_PATH") && LightDMDBus().isValid())
             DMType = LightDM;
@@ -430,18 +429,25 @@ KDisplayManager::exec(const char *cmd, QByteArray &buf)
 static bool getCurrentSeat(QDBusObjectPath *currentSession, QDBusObjectPath *currentSeat)
 {
     SystemdManager man;
-    QDBusReply<QDBusObjectPath> r = man.call(QStringLiteral("GetSessionByPID"), (uint) QCoreApplication::applicationPid());
-    if (r.isValid()) {
-        SystemdSession sess(r.value());
-        if (sess.isValid()) {
-            NamedDBusObjectPath namedPath = sess.getSeat();
-            if (currentSession)
-                *currentSession = r.value();
-            *currentSeat = namedPath.path;
+    if (man.isValid()) {
+        *currentSeat = QDBusObjectPath(_SYSTEMD_SEAT_BASE_PATH "/auto");
+        SystemdSeat seat(*currentSeat);
+        if (seat.property("Id").isValid()) { //query an arbitrary property to confirm the path is valid
             return true;
         }
-    }
-    else {
+
+        // auto is newer and may not exist on all platforms, fallback to GetSessionByPID if the above failed
+
+        QDBusReply<QDBusObjectPath> r = man.call(QStringLiteral("GetSessionByPID"), (uint) QCoreApplication::applicationPid());
+        if (r.isValid()) {
+            SystemdSession sess(r.value());
+            if (sess.isValid()) {
+                NamedDBusObjectPath namedPath = sess.getSeat();
+                *currentSeat = namedPath.path;
+                return true;
+            }
+        }
+    } else {
         CKManager man;
         QDBusReply<QDBusObjectPath> r = man.call(QStringLiteral("GetCurrentSession"));
         if (r.isValid()) {
@@ -616,6 +622,14 @@ KDisplayManager::isSwitchable()
                 QVariant prop = SDseat.property("CanMultiSession");
                 if (prop.isValid())
                     return prop.toBool();
+                else {
+                    // Newer systemd versions (since 246) don't expose "CanMultiSession" anymore.
+                    // It's hidden and always true.
+                    // See https://github.com/systemd/systemd/commit/8f8cc84ba4612e74cd1e26898c6816e6e60fc4e9
+                    // and https://github.com/systemd/systemd/commit/c2b178d3cacad52eadc30ecc349160bc02d32a9c
+                    // So assume that it's supported if the property is invalid.
+                    return true;
+                }
             }
             CKSeat CKseat(currentSeat);
             if (CKseat.isValid()) {
@@ -700,7 +714,8 @@ KDisplayManager::localSessions(SessList &list)
                              * doesn't seem exactly... right to me --mbriza
                              */
                             se.session = QStringLiteral("<unknown>");
-                            se.self = lsess.property("Display").toString() == ::getenv("DISPLAY"); /* Bleh once again */
+
+                            se.self = lsess.property("Id").toString() == qgetenv("XDG_SESSION_ID");
                             se.tty = !lsess.property("TTY").toString().isEmpty();
                         }
                         list.append(se);

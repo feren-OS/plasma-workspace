@@ -25,6 +25,7 @@
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
 #include <QDBusPendingCallWatcher>
+#include <QDBusServiceWatcher>
 #include <QMenu>
 #include <QQuickItem>
 #include <QQuickWindow>
@@ -37,6 +38,7 @@
 
 #include <KActionCollection>
 #include <KAcceleratorManager>
+#include <KConfigLoader>
 #include <KLocalizedString>
 
 #include <plasma_version.h>
@@ -45,10 +47,15 @@ SystemTray::SystemTray(QObject *parent, const QVariantList &args)
     : Plasma::Containment(parent, args),
       m_systemTrayModel(nullptr),
       m_sortedSystemTrayModel(nullptr),
-      m_configSystemTrayModel(nullptr)
+      m_configSystemTrayModel(nullptr),
+      m_sessionServiceWatcher(new QDBusServiceWatcher(this)),
+      m_systemServiceWatcher(new QDBusServiceWatcher(this))
 {
     setHasConfigurationInterface(true);
     setContainmentType(Plasma::Types::CustomEmbeddedContainment);
+
+    m_sessionServiceWatcher->setConnection(QDBusConnection::sessionBus());
+    m_systemServiceWatcher->setConnection(QDBusConnection::systemBus());
 }
 
 SystemTray::~SystemTray()
@@ -74,6 +81,10 @@ void SystemTray::init()
             QRegExp rx(dbusactivation);
             rx.setPatternSyntax(QRegExp::Wildcard);
             m_dbusActivatableTasks[info.pluginId()] = rx;
+
+            const QString watchedService = QString(dbusactivation).replace(".*", "*");
+            m_sessionServiceWatcher->addWatchedService(watchedService);
+            m_systemServiceWatcher->addWatchedService(watchedService);
         }
     }
 }
@@ -208,25 +219,6 @@ void SystemTray::showPlasmoidMenu(QQuickItem *appletInterface, int x, int y)
     desktopMenu->popup(pos.toPoint());
 }
 
-QString SystemTray::plasmoidCategory(QQuickItem *appletInterface) const
-{
-    if (!appletInterface) {
-        return QStringLiteral("UnknownCategory");
-    }
-
-    Plasma::Applet *applet = appletInterface->property("_plasma_applet").value<Plasma::Applet*>();
-    if (!applet || !applet->pluginMetaData().isValid()) {
-        return QStringLiteral("UnknownCategory");
-    }
-
-    const QString cat = applet->pluginMetaData().value(QStringLiteral("X-Plasma-NotificationAreaCategory"));
-
-    if (cat.isEmpty()) {
-        return QStringLiteral("UnknownCategory");
-    }
-    return cat;
-}
-
 void SystemTray::showStatusNotifierContextMenu(KJob *job, QQuickItem *statusNotifierIcon)
 {
     if (QCoreApplication::closingDown() || !statusNotifierIcon) {
@@ -321,10 +313,11 @@ void SystemTray::restoreContents(KConfigGroup &group)
     QStringList newKnownItems;
     QStringList newExtraItems;
 
+    KConfigLoader *scheme = configScheme();
     KConfigGroup general = group.group("General");
 
-    QStringList knownItems = general.readEntry("knownItems", QStringList());
-    QStringList extraItems = general.readEntry("extraItems", QStringList());
+    QStringList knownItems = general.readEntry("knownItems", scheme->property("knownItems").toStringList());
+    QStringList extraItems = general.readEntry("extraItems", scheme->property("extraItems").toStringList());
 
     //Add every plasmoid that is both not enabled explicitly and not already known
     for (int i = 0; i < m_defaultPlasmoids.length(); ++i) {
@@ -343,8 +336,10 @@ void SystemTray::restoreContents(KConfigGroup &group)
     if (newKnownItems.length() > 0) {
         general.writeEntry("knownItems", knownItems + newKnownItems);
     }
+    // refresh state of config scheme, if not, above writes are ignored
+    scheme->read();
 
-    setAllowedPlasmoids(general.readEntry("extraItems", QStringList()));
+    setAllowedPlasmoids(general.readEntry("extraItems", scheme->property("extraItems").toStringList()));
 
     emit configurationChanged(config());
 }
@@ -495,45 +490,54 @@ void SystemTray::setAllowedPlasmoids(const QStringList &allowed)
     emit allowedPlasmoidsChanged();
 }
 
+/* Loading and unloading Plasmoids when dbus services come and go
+ *
+ * This works as follows:
+ * - we collect a list of plugins and related services in m_dbusActivatableTasks
+ * - we query DBus for the list of services, async (initDBusActivatables())
+ * - we go over that list, adding tasks when a service and plugin match (serviceNameFetchFinished())
+ * - we start watching for new services, and do the same (serviceNameFetchFinished())
+ * - whenever a service is gone, we check whether to unload a Plasmoid (serviceUnregistered())
+ *
+ * Order of events has to be:
+ * - create a match rule for new service on DBus daemon
+ * - start fetching a list of names
+ * - ignore all changes that happen in the meantime
+ * - handle the list of all names
+ */
 void SystemTray::initDBusActivatables()
 {
     // Watch for new services
-    // We need to watch for all of new services here, since we want to "match" the names,
-    // not just compare them
-    // This makes mpris work, since it wants to match org.mpris.MediaPlayer2.dragonplayer
-    // against org.mpris.MediaPlayer2
-    // QDBusServiceWatcher is not capable for watching wildcard service right now
-    // See:
-    // https://bugreports.qt.io/browse/QTBUG-51683
-    // https://bugreports.qt.io/browse/QTBUG-33829
-    // This is fixed in Qt 5.15
-
-    // order of events has to be:
-    //  - create a match rule for new servies on DBus daemon
-    //  - start fetching a list of names
-    //  - ignore all changes that happen in the meantime
-    //  - handle the list of all names
-    connect(QDBusConnection::sessionBus().interface(), &QDBusConnectionInterface::serviceOwnerChanged, this, [=](const QString &serviceName, const QString &oldOwner, const QString &newOwner) {
+    connect(m_sessionServiceWatcher, &QDBusServiceWatcher::serviceRegistered, this, [this](const QString &serviceName)
+    {
         if (!m_dbusSessionServiceNamesFetched) {
             return;
         }
-        serviceOwnerChanged(serviceName, oldOwner, newOwner);
+        serviceRegistered(serviceName);
     });
-    connect(QDBusConnection::systemBus().interface(), &QDBusConnectionInterface::serviceOwnerChanged, this, [=](const QString &serviceName, const QString &oldOwner, const QString &newOwner) {
+    connect(m_sessionServiceWatcher, &QDBusServiceWatcher::serviceUnregistered, this, [this](const QString &serviceName)
+    {
+        if (!m_dbusSessionServiceNamesFetched) {
+            return;
+        }
+        serviceUnregistered(serviceName);
+    });
+    connect(m_systemServiceWatcher, &QDBusServiceWatcher::serviceRegistered, this, [this](const QString &serviceName)
+    {
         if (!m_dbusSystemServiceNamesFetched) {
             return;
         }
-        serviceOwnerChanged(serviceName, oldOwner, newOwner);
+        serviceRegistered(serviceName);
     });
-    /* Loading and unloading Plasmoids when dbus services come and go
-     *
-     * This works as follows:
-     * - we collect a list of plugins and related services in m_dbusActivatableTasks
-     * - we query DBus for the list of services, async (initDBusActivatables())
-     * - we go over that list, adding tasks when a service and plugin match (serviceNameFetchFinished())
-     * - we start watching for new services, and do the same (serviceNameFetchFinished())
-     * - whenever a service is gone, we check whether to unload a Plasmoid (serviceUnregistered())
-     */
+    connect(m_systemServiceWatcher, &QDBusServiceWatcher::serviceUnregistered, this, [this](const QString &serviceName)
+    {
+        if (!m_dbusSystemServiceNamesFetched) {
+            return;
+        }
+        serviceUnregistered(serviceName);
+    });
+
+    // fetch list of existing services
     QDBusPendingCall async = QDBusConnection::sessionBus().interface()->asyncCall(QStringLiteral("ListNames"));
     QDBusPendingCallWatcher *callWatcher = new QDBusPendingCallWatcher(async, this);
     connect(callWatcher, &QDBusPendingCallWatcher::finished, [=](QDBusPendingCallWatcher *callWatcher) {
@@ -561,15 +565,6 @@ void SystemTray::serviceNameFetchFinished(QDBusPendingCallWatcher* watcher)
         for (const QString& serviceName : propsReplyValue) {
             serviceRegistered(serviceName);
         }
-    }
-}
-
-void SystemTray::serviceOwnerChanged(const QString &serviceName, const QString &oldOwner, const QString &newOwner)
-{
-    if (oldOwner.isEmpty()) {
-        serviceRegistered(serviceName);
-    } else if (newOwner.isEmpty()) {
-        serviceUnregistered(serviceName);
     }
 }
 

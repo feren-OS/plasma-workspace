@@ -8,6 +8,7 @@ X-KDE-PluginKeyword=kcm_krunner_kill
 
 Name=Kill Applications
 Name[ar]=اقتل التطبيقات
+Name[az]=Tətbiqləri söndürmək
 Name[bg]=Убиване на програми
 Name[bn]=অ্যাপলিকেশন বন্ধ করো
 Name[bs]=Obustavljanje programa
@@ -69,7 +70,7 @@ Name[th]=ฆ่าโพรเซสของโปรแกรม
 Name[tr]=Uygulamaları Sonlandır
 Name[ug]=پروگراممىنى ئاخىرلاشتۇر
 Name[uk]=Припинення роботи програм
-Name[vi]=Tắt ứng dụng
+Name[vi]=Giết ứng dụng
 Name[wa]=Touwer des programes
 Name[x-test]=xxKill Applicationsxx
 Name[zh_CN]=杀死程序

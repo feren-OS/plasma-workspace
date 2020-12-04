@@ -195,6 +195,9 @@ class NotificationThread : public QThread
         m->play();
         exec();
     }
+private:
+    // Prevent application exit until the thread (and hence the sound) completes
+    QEventLoopLocker m_locker;
 
 };
 
@@ -208,7 +211,7 @@ Startup::Startup(QObject *parent):
     upAndRunning(QStringLiteral("ksmserver"));
     const AutoStart autostart;
 
-    QProcess::execute(QStringLiteral(CMAKE_INSTALL_FULL_LIBEXECDIR_KF5 "/start_kdeinit_wrapper"));
+    QProcess::execute(QStringLiteral(CMAKE_INSTALL_FULL_LIBEXECDIR_KF5 "/start_kdeinit_wrapper"), QStringList());
 
     KJob* phase1;
     QProcessEnvironment kdedProcessEnv;
@@ -260,6 +263,8 @@ Startup::Startup(QObject *parent):
 
     connect(sequence.last(), &KJob::finished, this, &Startup::finishStartup);
     sequence.first()->start();
+
+    // app will be closed when all KJobs finish thanks to the QEventLoopLocker in each KJob
 }
 
 void Startup::upAndRunning( const QString& msg )
@@ -276,7 +281,6 @@ void Startup::finishStartup()
 {
     qCDebug(PLASMA_SESSION) << "Finished";
     upAndRunning(QStringLiteral("ready"));
-    qApp->quit();
 }
 
 void Startup::updateLaunchEnv(const QString &key, const QString &value)
@@ -359,7 +363,7 @@ void StartupPhase2::runUserAutostart()
             auto p = new KProcess; //deleted in onFinished lambda
             p->setProgram(fullPath);
             p->start();
-            connect(p, static_cast<void (QProcess::*)(int)>(&QProcess::finished), [p](int exitCode) {
+            connect(p, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), [p](int exitCode) {
                 qCInfo(PLASMA_SESSION) << "autostart script" << p->program() << "finished with exit code " << exitCode;
                 p->deleteLater();
             });
@@ -484,7 +488,7 @@ StartProcessJob::StartProcessJob(const QString &process, const QStringList &args
     env.insert(additionalEnv);
     m_process->setProcessEnvironment(env);
 
-    connect(m_process, static_cast<void (QProcess::*)(int)>(&QProcess::finished), [this](int exitCode) {
+    connect(m_process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), [this](int exitCode) {
         qCInfo(PLASMA_SESSION) << "process job " << m_process->program() << "finished with exit code " << exitCode;
         emitResult();
     });

@@ -23,7 +23,7 @@ import QtQuick.Layouts 1.1
 import QtQuick.Controls 1.1
 
 import org.kde.plasma.core 2.0 as PlasmaCore
-import org.kde.plasma.components 2.0 as PlasmaComponents
+import org.kde.plasma.components 3.0 as PlasmaComponents3
 
 Item {
     id: root
@@ -61,7 +61,7 @@ Item {
 
     property alias userList: userListView
 
-    property int fontSize: config.fontSize
+    property int fontSize: PlasmaCore.Theme.defaultFont.pointSize + 2
 
     default property alias _children: innerLayout.children
 
@@ -73,6 +73,7 @@ Item {
             left: parent.left
             right: parent.right
         }
+        fontSize: root.fontSize
     }
 
     //goal is to show the prompts, in ~16 grid units high, then the action buttons
@@ -85,9 +86,9 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
-        PlasmaComponents.Label {
+        PlasmaComponents3.Label {
             id: notificationsLabel
-            font.pointSize: Math.max(fontSize + 1,theme.defaultFont.pointSize + 1)
+            font.pointSize: root.fontSize
             Layout.maximumWidth: units.gridUnit * 16
             Layout.alignment: Qt.AlignHCenter
             Layout.fillWidth: true
