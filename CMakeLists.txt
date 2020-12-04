@@ -213,6 +213,9 @@ add_subdirectory(statusnotifierwatcher)
 add_subdirectory(startkde)
 add_subdirectory(themes)
 
+find_package(KF5I18n CONFIG REQUIRED)
+ki18n_install(po)
+
 add_subdirectory(kcms)
 
 add_subdirectory(containmentactions)
@@ -229,9 +232,9 @@ add_subdirectory(phonon)
 # This ensures pressing the eject button on a CD drive ejects the disc
 # It listens to the Solid::OpticalDrive::ejectPressed signal that is only
 # supported by Solid in the HAL backend and does nothing with UDev
-if(CMAKE_SYSTEM_NAME MATCHES FreeBSD)
+#if(CMAKE_SYSTEM_NAME MATCHES FreeBSD)
 add_subdirectory(solidautoeject)
-endif()
+#endif()
 
 ecm_optional_add_subdirectory(xembed-sni-proxy)
 
@@ -239,9 +242,9 @@ ecm_optional_add_subdirectory(gmenu-dbusmenu-proxy)
 
 add_subdirectory(soliduiserver)
 
-if(KF5Holidays_FOUND)
+#if(KF5Holidays_FOUND)
     add_subdirectory(plasmacalendarintegration)
-endif()
+#endif()
 
 add_subdirectory(templates)
 
