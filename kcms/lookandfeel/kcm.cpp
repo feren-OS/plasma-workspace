@@ -277,6 +277,9 @@ void KCMLookandFeel::save()
             KConfigGroup cg(conf, "kdeglobals");
             cg = KConfigGroup(&cg, "General");
             QString colorScheme = cg.readEntry("ColorScheme", QString());
+            
+            //Temporary until Plasma upstream fixes the bug where GTK3 applications do not automatically get their colours reloaded
+            std::system((std::string("/usr/bin/colorskcmtool --apply ") + colorScheme.toUtf8().constData()).c_str());
 
             if (!colorsFile.isEmpty()) {
                 if (!colorScheme.isEmpty()) {
