@@ -26,8 +26,11 @@ void SchemeEditorOptions::updateValues()
 
 void SchemeEditorOptions::loadOptions()
 {
-    KConfigGroup generalGroup(KSharedConfig::openConfig(), "General");
+    KConfigGroup generalGroup(m_config, "General");
     shadeSortedColumn->setChecked(generalGroup.readEntry("shadeSortColumn", true));
+
+    accentActiveTitlebar->setChecked(generalGroup.readEntry("accentActiveTitlebar", false));
+    accentInactiveTitlebar->setChecked(generalGroup.readEntry("accentInactiveTitlebar", false));
 
     KConfigGroup KDEgroup(m_config, "KDE");
     contrastSlider->setValue(KDEgroup.readEntry("contrast", KColorScheme::contrast()));
@@ -82,4 +85,26 @@ void SchemeEditorOptions::on_inactiveSelectionEffect_stateChanged(int state)
     group.writeEntry("ChangeSelectionColor", bool(state != Qt::Unchecked));
 
     emit changed(true);
+}
+
+void SchemeEditorOptions::on_accentActiveTitlebar_stateChanged(int state)
+{
+    if (m_disableUpdates)
+        return;
+
+    KConfigGroup group(m_config, "General");
+    group.writeEntry("accentActiveTitlebar", bool(state != Qt::Unchecked));
+
+    Q_EMIT changed(true);
+}
+
+void SchemeEditorOptions::on_accentInactiveTitlebar_stateChanged(int state)
+{
+    if (m_disableUpdates)
+        return;
+
+    KConfigGroup group(m_config, "General");
+    group.writeEntry("accentInactiveTitlebar", bool(state != Qt::Unchecked));
+
+    Q_EMIT changed(true);
 }

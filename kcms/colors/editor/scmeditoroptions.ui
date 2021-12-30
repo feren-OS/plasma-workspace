@@ -26,6 +26,20 @@
     </widget>
    </item>
    <item>
+    <widget class="QCheckBox" name="accentActiveTitlebar">
+     <property name="text">
+      <string>Allow a&amp;ccent color on active titlebars</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QCheckBox" name="accentInactiveTitlebar">
+     <property name="text">
+      <string>Allow acce&amp;nt color on inactive titlebars</string>
+     </property>
+    </widget>
+   </item>
+   <item>
     <widget class="QCheckBox" name="shadeSortedColumn">
      <property name="text">
       <string>Shade sorted column &amp;in lists</string>
