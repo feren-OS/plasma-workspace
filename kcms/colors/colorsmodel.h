@@ -21,6 +21,7 @@ struct ColorsModelData {
     QColor activeTitleBarBackground;
     QColor activeTitleBarForeground;
     bool removable;
+    bool colorTitlebar;
     bool pendingDeletion;
 };
 Q_DECLARE_TYPEINFO(ColorsModelData, Q_MOVABLE_TYPE);
@@ -43,6 +44,7 @@ public:
         ActiveTitleBarBackgroundRole,
         ActiveTitleBarForegroundRole,
         RemovableRole,
+        ColorTitlebarRole,
         PendingDeletionRole,
     };
 

@@ -58,6 +58,8 @@ QVariant ColorsModel::data(const QModelIndex &index, int role) const
         return item.pendingDeletion;
     case RemovableRole:
         return item.removable;
+    case ColorTitlebarRole:
+        return item.colorTitlebar;
     }
 
     return QVariant();
@@ -103,6 +105,7 @@ QHash<int, QByteArray> ColorsModel::roleNames() const
         {ActiveTitleBarBackgroundRole, QByteArrayLiteral("activeTitleBarBackground")},
         {ActiveTitleBarForegroundRole, QByteArrayLiteral("activeTitleBarForeground")},
         {RemovableRole, QByteArrayLiteral("removable")},
+        {ColorTitlebarRole, QByteArrayLiteral("colorTitlebar")},
         {PendingDeletionRole, QByteArrayLiteral("pendingDeletion")},
     };
 }
@@ -177,6 +180,8 @@ void ColorsModel::load()
         KConfigGroup group(config, "General");
         const QString name = group.readEntry("Name", baseName);
 
+        const bool colorActiveTitleBar = group.readEntry("accentActiveTitlebar", false);
+
         const QPalette palette = KColorScheme::createApplicationPalette(config);
 
         QColor activeTitleBarBackground, activeTitleBarForeground;
@@ -197,6 +202,7 @@ void ColorsModel::load()
             activeTitleBarBackground,
             activeTitleBarForeground,
             fi.isWritable(),
+            colorActiveTitleBar,
             false, // pending deletion
         };
 
