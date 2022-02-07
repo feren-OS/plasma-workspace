@@ -40,6 +40,7 @@ add_library(kcm_lookandfeel_static STATIC ${kcm_lookandfeel_SRCS})
 target_link_libraries(kcm_lookandfeel_static
     Qt::DBus
     KF5::I18n
+    KF5::KIOGui
     KF5::KCMUtils
     KF5::IconThemes
     KF5::JobWidgets
@@ -91,3 +92,16 @@ ADD_CUSTOM_TARGET(plasma-apply-lookandfeel_link ALL
                   COMMAND ${CMAKE_COMMAND} -E create_symlink ${KDE_INSTALL_FULL_BINDIR}/plasma-apply-lookandfeel ${CMAKE_CURRENT_BINARY_DIR}/lookandfeeltool)
 install( FILES ${CMAKE_CURRENT_BINARY_DIR}/lookandfeeltool DESTINATION ${KDE_INSTALL_FULL_BINDIR}/ )
 install( TARGETS plasma-apply-lookandfeel ${KDE_INSTALL_TARGETS_DEFAULT_ARGS} )
+
+###### Command line tool (Desktop Layout)
+
+kconfig_add_kcfg_files(plasma-apply-desktoplayout_SRCS lookandfeelsettings.kcfgc GENERATE_MOC)
+
+add_executable(plasma-apply-desktoplayout dltool.cpp)
+
+target_link_libraries(plasma-apply-desktoplayout kcm_lookandfeel_static)
+
+ADD_CUSTOM_TARGET(plasma-apply-desktoplayout_link ALL
+                  COMMAND ${CMAKE_COMMAND} -E create_symlink ${KDE_INSTALL_FULL_BINDIR}/plasma-apply-desktoplayout ${CMAKE_CURRENT_BINARY_DIR}/desktoplayouttool)
+install( FILES ${CMAKE_CURRENT_BINARY_DIR}/desktoplayouttool DESTINATION ${KDE_INSTALL_FULL_BINDIR}/ )
+install( TARGETS plasma-apply-desktoplayout ${KDE_INSTALL_TARGETS_DEFAULT_ARGS} )
