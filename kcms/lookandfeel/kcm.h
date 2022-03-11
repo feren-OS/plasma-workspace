@@ -3,6 +3,7 @@
     SPDX-FileCopyrightText: 2014 Vishesh Handa <me@vhanda.in>
     SPDX-FileCopyrightText: 2019 Cyril Rossi <cyril.rossi@enioka.com>
     SPDX-FileCopyrightText: 2021 Benjamin Port <benjamin.port@enioka.com>
+    SPDX-FileCopyrightText: 2022 Dominic Hayes <ferenosdev@outlook.com>
 
     SPDX-License-Identifier: LGPL-2.0-only
 */
@@ -21,6 +22,7 @@
 #include <KQuickAddons/ManagedConfigModule>
 
 #include "lookandfeelsettings.h"
+#include "lookandfeelmanager.h"
 
 class QQuickItem;
 class LookAndFeelManager;
@@ -30,7 +32,7 @@ class KCMLookandFeel : public KQuickAddons::ManagedConfigModule
     Q_OBJECT
     Q_PROPERTY(LookAndFeelSettings *lookAndFeelSettings READ lookAndFeelSettings CONSTANT)
     Q_PROPERTY(QStandardItemModel *lookAndFeelModel READ lookAndFeelModel CONSTANT)
-    Q_PROPERTY(bool resetDefaultLayout READ resetDefaultLayout WRITE setResetDefaultLayout NOTIFY resetDefaultLayoutChanged)
+    Q_PROPERTY(LookAndFeelManager::ItemsToApply toApply READ toApply WRITE setToApply NOTIFY toApplyChanged)
 
 public:
     enum Roles {
@@ -49,7 +51,11 @@ public:
         HasCursorsRole,
         HasWindowSwitcherRole,
         HasDesktopSwitcherRole,
+        HasWindowDecorationRole,
+        HasDesktopLayoutRole,
+        HasGlobalThemeRole,
     };
+    Q_ENUM(Roles)
 
     KCMLookandFeel(QObject *parent, const KPluginMetaData &data, const QVariantList &args);
     ~KCMLookandFeel() override;
@@ -71,8 +77,8 @@ public:
     void addKPackageToModel(const KPackage::Package &pkg);
 
     bool isSaveNeeded() const override;
-    bool resetDefaultLayout() const;
-    void setResetDefaultLayout(bool reset);
+    LookAndFeelManager::ItemsToApply toApply() const;
+    void setToApply(LookAndFeelManager::ItemsToApply items);
 
 public Q_SLOTS:
     void load() override;
@@ -80,7 +86,8 @@ public Q_SLOTS:
     void defaults() override;
 
 Q_SIGNALS:
-    void resetDefaultLayoutChanged();
+    void showConfirmation();
+    void toApplyChanged();
 
 private:
     // List only packages which provide at least one of the components

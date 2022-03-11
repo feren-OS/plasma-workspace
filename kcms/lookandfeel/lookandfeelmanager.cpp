@@ -3,6 +3,7 @@
     SPDX-FileCopyrightText: 2014 Vishesh Handa <me@vhanda.in>
     SPDX-FileCopyrightText: 2019 Cyril Rossi <cyril.rossi@enioka.com>
     SPDX-FileCopyrightText: 2021 Benjamin Port <benjamin.port@enioka.com>
+    SPDX-FileCopyrightText: 2022 Dominic Hayes <ferenosdev@outlook.com>
 
     SPDX-License-Identifier: LGPL-2.0-only
 */
@@ -27,6 +28,13 @@
 LookAndFeelManager::LookAndFeelManager(QObject *parent)
     : QObject(parent)
     , m_data(new LookAndFeelData(this))
+    , m_toApply(LookAndFeelManager::ItemsToApply(LookAndFeelManager::DesktopLayout |
+            LookAndFeelManager::Colors | LookAndFeelManager::WidgetStyle |
+            LookAndFeelManager::WindowDecoration | LookAndFeelManager::Icons |
+            LookAndFeelManager::PlasmaTheme | LookAndFeelManager::Cursors |
+            LookAndFeelManager::SplashScreen | LookAndFeelManager::LockScreen |
+            LookAndFeelManager::WindowSwitcher | LookAndFeelManager::DesktopSwitcher |
+            LookAndFeelManager::WindowPlacement | LookAndFeelManager::ShellPackage))
 {
     m_applyLatteLayout = (KService::serviceByDesktopName("org.kde.latte-dock") != nullptr);
 }
@@ -34,6 +42,20 @@ LookAndFeelManager::LookAndFeelManager(QObject *parent)
 LookAndFeelSettings *LookAndFeelManager::settings() const
 {
     return m_data->settings();
+}
+
+void LookAndFeelManager::setToApply(ItemsToApply items)
+{
+    if (m_toApply == items) {
+        return;
+    }
+    m_toApply = items;
+    Q_EMIT toApplyChanged();
+}
+
+LookAndFeelManager::ItemsToApply LookAndFeelManager::toApply() const
+{
+    return m_toApply;
 }
 
 void LookAndFeelManager::setSplashScreen(const QString &theme)
@@ -188,20 +210,6 @@ void LookAndFeelManager::setPlasmaTheme(const QString &theme)
     writeNewDefaults(QStringLiteral("plasmarc"), QStringLiteral("Theme"), QStringLiteral("name"), theme);
 }
 
-void LookAndFeelManager::setResetDefaultLayout(bool reset)
-{
-    if (m_resetDefaultLayout == reset) {
-        return;
-    }
-    m_resetDefaultLayout = reset;
-    Q_EMIT resetDefaultLayoutChanged();
-}
-
-bool LookAndFeelManager::resetDefaultLayout() const
-{
-    return m_resetDefaultLayout;
-}
-
 void LookAndFeelManager::writeNewDefaults(const QString &filename,
                                           const QString &group,
                                           const QString &key,
@@ -281,7 +289,7 @@ QString LookAndFeelManager::colorSchemeFile(const QString &schemeName) const
 
 void LookAndFeelManager::save(const KPackage::Package &package, const KPackage::Package &previousPackage)
 {
-    if (m_resetDefaultLayout && m_mode == Mode::Apply) {
+    if (m_toApply.testFlag(LookAndFeelManager::DesktopLayout) && m_mode == Mode::Apply) {
         QDBusMessage message = QDBusMessage::createMethodCall(QStringLiteral("org.kde.plasmashell"),
                                                               QStringLiteral("/PlasmaShell"),
                                                               QStringLiteral("org.kde.PlasmaShell"),
@@ -303,7 +311,7 @@ void LookAndFeelManager::save(const KPackage::Package &package, const KPackage::
         KSharedConfigPtr conf = KSharedConfig::openConfig(package.filePath("defaults"));
         KConfigGroup group(conf, "kdeglobals");
         group = KConfigGroup(&group, "KDE");
-        if (m_applyWidgetStyle) {
+        if (m_toApply.testFlag(LookAndFeelManager::WidgetStyle)) {
             QString widgetStyle = group.readEntry("widgetStyle", QString());
             // Some global themes refer to breeze's widgetStyle with a lowercase b.
             if (widgetStyle == QStringLiteral("breeze")) {
@@ -313,7 +321,7 @@ void LookAndFeelManager::save(const KPackage::Package &package, const KPackage::
             setWidgetStyle(widgetStyle);
         }
 
-        if (m_applyColors) {
+        if (m_toApply.testFlag(LookAndFeelManager::Colors)) {
             QString colorsFile = package.filePath("colors");
             KConfigGroup group(conf, "kdeglobals");
             group = KConfigGroup(&group, "General");
@@ -333,49 +341,49 @@ void LookAndFeelManager::save(const KPackage::Package &package, const KPackage::
             }
         }
 
-        if (m_applyIcons) {
+        if (m_toApply.testFlag(LookAndFeelManager::Icons)) {
             group = KConfigGroup(conf, "kdeglobals");
             group = KConfigGroup(&group, "Icons");
             setIcons(group.readEntry("Theme", QString()));
         }
 
-        if (m_applyPlasmaTheme) {
+        if (m_toApply.testFlag(LookAndFeelManager::PlasmaTheme)) {
             group = KConfigGroup(conf, "plasmarc");
             group = KConfigGroup(&group, "Theme");
             setPlasmaTheme(group.readEntry("name", QString()));
         }
 
-        if (m_applyCursors) {
+        if (m_toApply.testFlag(LookAndFeelManager::Cursors)) {
             group = KConfigGroup(conf, "kcminputrc");
             group = KConfigGroup(&group, "Mouse");
             setCursorTheme(group.readEntry("cursorTheme", QString()));
         }
 
-        if (m_applyWindowSwitcher) {
+        if (m_toApply.testFlag(LookAndFeelManager::WindowSwitcher)) {
             group = KConfigGroup(conf, "kwinrc");
             group = KConfigGroup(&group, "WindowSwitcher");
             setWindowSwitcher(group.readEntry("LayoutName", QString()));
         }
 
-        if (m_applyDesktopSwitcher) {
+        if (m_toApply.testFlag(LookAndFeelManager::DesktopSwitcher)) {
             group = KConfigGroup(conf, "kwinrc");
             group = KConfigGroup(&group, "DesktopSwitcher");
             setDesktopSwitcher(group.readEntry("LayoutName", QString()));
         }
 
-        if (m_applyWindowPlacement) {
+        if (m_toApply.testFlag(LookAndFeelManager::WindowPlacement)) {
             group = KConfigGroup(conf, "kwinrc");
             group = KConfigGroup(&group, "Windows");
             setWindowPlacement(group.readEntry("Placement", QStringLiteral("Centered")));
         }
 
-        if (m_applyShellPackage) {
+        if (m_toApply.testFlag(LookAndFeelManager::ShellPackage)) {
             group = KConfigGroup(conf, "plasmashellrc");
             group = KConfigGroup(&group, "Shell");
             setShellPackage(group.readEntry("ShellPackage", QString()));
         }
 
-        if (m_applyWindowDecoration) {
+        if (m_toApply.testFlag(LookAndFeelManager::WindowDecoration)) {
             group = KConfigGroup(conf, "kwinrc");
             group = KConfigGroup(&group, "org.kde.kdecoration2");
 #ifdef HAVE_BREEZE_DECO
@@ -386,8 +394,19 @@ void LookAndFeelManager::save(const KPackage::Package &package, const KPackage::
 #endif
         }
 
-        setSplashScreen(m_data->settings()->lookAndFeelPackage());
-        setLockScreen(m_data->settings()->lookAndFeelPackage());
+        if (m_toApply.testFlag(LookAndFeelManager::SplashScreen)) {
+            group = KConfigGroup(conf, "ksplashrc");
+            group = KConfigGroup(&group, "KSplash");
+            QString splashScreen = (group.readEntry("Theme", QString()));
+            if (!splashScreen.isEmpty()) {
+                setSplashScreen(splashScreen);
+            } else {
+                setSplashScreen(m_data->settings()->lookAndFeelPackage());
+            }
+        }
+        if (m_toApply.testFlag(LookAndFeelManager::LockScreen)) {
+            setLockScreen(m_data->settings()->lookAndFeelPackage());
+        }
 
         QFile packageFile(QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation) + QLatin1String("/kdedefaults/package"));
         packageFile.open(QIODevice::WriteOnly);
@@ -398,7 +417,7 @@ void LookAndFeelManager::save(const KPackage::Package &package, const KPackage::
         }
 
         // Reload KWin if something changed, but only once.
-        if (m_applyWindowSwitcher || m_applyDesktopSwitcher || m_applyWindowDecoration || m_applyWindowPlacement) {
+        if (m_toApply.testFlag(LookAndFeelManager::WindowSwitcher) || m_toApply.testFlag(LookAndFeelManager::DesktopSwitcher) || m_toApply.testFlag(LookAndFeelManager::WindowDecoration) || m_toApply.testFlag(LookAndFeelManager::WindowPlacement)) {
             QDBusMessage message = QDBusMessage::createSignal(QStringLiteral("/KWin"), QStringLiteral("org.kde.KWin"), QStringLiteral("reloadConfig"));
             QDBusConnection::sessionBus().send(message);
         }
@@ -410,7 +429,7 @@ void LookAndFeelManager::save(const KPackage::Package &package, const KPackage::
         }
 
         // autostart
-        if (m_resetDefaultLayout) {
+        if (m_toApply.testFlag(LookAndFeelManager::DesktopLayout)) {
             QStringList toStop;
             KService::List toStart;
             // remove all the old package to autostart

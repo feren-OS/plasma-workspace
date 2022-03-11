@@ -1,5 +1,6 @@
 /*
-    SPDX-FileCopyrightText: 2017 Marco MArtin <mart@kde.org>
+    SPDX-FileCopyrightText: 2017 Marco Martin <mart@kde.org>
+    SPDX-FileCopyrightText: 2022 Dominic Hayes <ferenosdev@outlook.com>
 
     SPDX-License-Identifier: GPL-2.0-or-later
 */
@@ -94,7 +95,21 @@ int main(int argc, char **argv)
 
         KCMLookandFeel *kcm = new KCMLookandFeel(nullptr, KPluginMetaData(), QVariantList());
         kcm->load();
-        kcm->setResetDefaultLayout(parser.isSet(_resetLayout));
+        if (parser.isSet(_resetLayout)) {
+            kcm->setToApply(LookAndFeelManager::DesktopLayout | LookAndFeelManager::Colors |
+            LookAndFeelManager::WidgetStyle | LookAndFeelManager::WindowDecoration |
+            LookAndFeelManager::Icons | LookAndFeelManager::PlasmaTheme |
+            LookAndFeelManager::Cursors | LookAndFeelManager::SplashScreen |
+            LookAndFeelManager::LockScreen | LookAndFeelManager::WindowSwitcher |
+            LookAndFeelManager::DesktopSwitcher | LookAndFeelManager::WindowPlacement |
+            LookAndFeelManager::ShellPackage);
+        } else {
+            kcm->setToApply(LookAndFeelManager::Colors | LookAndFeelManager::WidgetStyle |
+            LookAndFeelManager::WindowDecoration | LookAndFeelManager::Icons |
+            LookAndFeelManager::PlasmaTheme | LookAndFeelManager::Cursors |
+            LookAndFeelManager::SplashScreen | LookAndFeelManager::LockScreen |
+            LookAndFeelManager::WindowSwitcher);
+        }
         kcm->lookAndFeelSettings()->setLookAndFeelPackage(requestedTheme);
         // Save manually as we aren't in an event loop
         kcm->lookAndFeelSettings()->save();

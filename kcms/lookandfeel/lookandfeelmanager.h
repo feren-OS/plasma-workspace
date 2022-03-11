@@ -3,6 +3,7 @@
     SPDX-FileCopyrightText: 2014 Vishesh Handa <me@vhanda.in>
     SPDX-FileCopyrightText: 2019 Cyril Rossi <cyril.rossi@enioka.com>
     SPDX-FileCopyrightText: 2021 Benjamin Port <benjamin.port@enioka.com>
+    SPDX-FileCopyrightText: 2022 Dominic Hayes <ferenosdev@outlook.com>
 
     SPDX-License-Identifier: LGPL-2.0-only
 */
@@ -29,6 +30,24 @@ public:
         Defaults // Only set up the options of the look and feel theme as new defaults without changing any active setting
     };
 
+    enum ItemToApply {
+        DesktopLayout = 1 << 0,
+        Colors = 1 << 1,
+        WidgetStyle = 1 << 2,
+        WindowDecoration = 1 << 3,
+        Icons = 1 << 4,
+        PlasmaTheme = 1 << 5,
+        Cursors = 1 << 6,
+        DesktopSwitcher = 1 << 7,
+        WindowSwitcher = 1 << 8,
+        SplashScreen = 1 << 9,
+        LockScreen = 1 << 10,
+        WindowPlacement = 1 << 11, //FIXME: Do we still want these?
+        ShellPackage = 1 << 12,
+    };
+    Q_DECLARE_FLAGS(ItemsToApply, ItemToApply)
+    Q_FLAG(ItemsToApply)
+
     LookAndFeelManager(QObject *parent = nullptr);
 
     void setMode(Mode mode);
@@ -37,11 +56,10 @@ public:
      * Effects depend upon the Mode of this object. If Mode is Defaults, oldPackage is ignored.
      */
     void save(const KPackage::Package &package, const KPackage::Package &oldPackage);
+    ItemsToApply toApply() const;
+    void setToApply(ItemsToApply items);
 
     QString colorSchemeFile(const QString &schemeName) const;
-
-    bool resetDefaultLayout() const;
-    void setResetDefaultLayout(bool reset);
 
     // Setters of the various theme pieces
     void setWidgetStyle(const QString &style);
@@ -60,14 +78,9 @@ public:
 
     LookAndFeelSettings *settings() const;
 
-    void setApplyWidgetStyle(bool apply)
-    {
-        m_applyWidgetStyle = apply;
-    }
-
 Q_SIGNALS:
     void message();
-    void resetDefaultLayoutChanged();
+    void toApplyChanged();
     void iconsChanged();
     void colorsChanged();
     void styleChanged(const QString &newStyle);
@@ -93,20 +106,11 @@ private:
     QStringList m_cursorSearchPaths;
     LookAndFeelData *const m_data;
     Mode m_mode = Mode::Apply;
-    bool m_applyColors : 1 = true;
-    bool m_applyWidgetStyle : 1 = true;
-    bool m_applyIcons : 1 = true;
-    bool m_applyPlasmaTheme : 1 = true;
-    bool m_applyCursors : 1 = true;
-    bool m_applyWindowSwitcher : 1 = true;
-    bool m_applyDesktopSwitcher : 1 = true;
-    bool m_applyWindowPlacement : 1 = true;
-    bool m_applyShellPackage : 1 = true;
-    bool m_resetDefaultLayout : 1 = false;
     bool m_applyLatteLayout : 1 = false;
-    bool m_applyWindowDecoration : 1 = true;
+    ItemsToApply m_toApply;
 
     bool m_plasmashellChanged = false;
 };
+Q_DECLARE_OPERATORS_FOR_FLAGS(LookAndFeelManager::ItemsToApply)
 
 #endif // LOOKANDFEELMANAGER_H
