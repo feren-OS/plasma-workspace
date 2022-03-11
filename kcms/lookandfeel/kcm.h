@@ -52,8 +52,10 @@ public:
         HasWindowSwitcherRole,
         HasDesktopSwitcherRole,
         HasWindowDecorationRole,
+        HasTitlebarLayoutRole,
         HasDesktopLayoutRole,
         HasGlobalThemeRole,
+        HasLayoutSettingsRole,
     };
     Q_ENUM(Roles)
 

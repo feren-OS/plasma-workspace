@@ -102,7 +102,7 @@ int main(int argc, char **argv)
             LookAndFeelManager::Cursors | LookAndFeelManager::SplashScreen |
             LookAndFeelManager::LockScreen | LookAndFeelManager::WindowSwitcher |
             LookAndFeelManager::DesktopSwitcher | LookAndFeelManager::WindowPlacement |
-            LookAndFeelManager::ShellPackage);
+            LookAndFeelManager::ShellPackage | LookAndFeelManager::TitlebarLayout);
         } else {
             kcm->setToApply(LookAndFeelManager::Colors | LookAndFeelManager::WidgetStyle |
             LookAndFeelManager::WindowDecoration | LookAndFeelManager::Icons |

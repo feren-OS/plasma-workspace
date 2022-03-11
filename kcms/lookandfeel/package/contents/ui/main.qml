@@ -52,6 +52,7 @@ KCM.GridViewKCM {
         }
         resetCheckbox.checked = resetCheckbox.enabled && value
         resetCheckboxSub.checked = resetCheckbox.enabled && value
+        titlebarLayoutCheckbox.checked = resetCheckbox.enabled && value
     }
     Connections {
         target: kcm
@@ -154,7 +155,7 @@ KCM.GridViewKCM {
                     QtControls.CheckBox {
                         id: resetCheckbox
                         checked: enabled && !globalThemeCheckbox.enabled
-                        text: i18n("Desktop layout")
+                        text: i18n("Desktop and window layout")
                         onCheckedChanged: {
                             if (checked) {
                                 globalThemeConfirmSheet.selectedOptions |= Private.LookandFeelManager.DesktopLayout
@@ -171,7 +172,8 @@ KCM.GridViewKCM {
                             }
                             setDesktopLayoutCheckboxes(checked) //Set the checkboxes on the More Options page for layout to match this new state
                         }
-                        enabled: view.model.data(view.model.index(view.currentIndex, 0), Private.KCMLookandFeel.HasDesktopLayoutRole)
+                        enabled: view.model.data(view.model.index(view.currentIndex, 0), Private.KCMLookandFeel.HasDesktopLayoutRole) ||
+                            view.model.data(view.model.index(view.currentIndex, 0), Private.KCMLookandFeel.HasLayoutSettingsRole)
                         //enabled is needed because lblsub can make it invisible
                         visible: enabled && !resetCheckboxLblSub.visible
                     }
@@ -179,7 +181,7 @@ KCM.GridViewKCM {
                         id: resetCheckboxLblSub
                         visible: resetCheckbox.enabled && !globalThemeCheckbox.enabled
                         Layout.fillWidth: true
-                        text: i18nc("List item", "• Desktop layout")
+                        text: i18nc("List item", "• Desktop and window layout")
                         wrapMode: Text.WordWrap
                     }
                     QtControls.Label {
@@ -241,6 +243,20 @@ KCM.GridViewKCM {
                         font: Kirigami.Theme.smallFont
                         visible: resetCheckboxSub.visible
                         color: Kirigami.Theme.neutralTextColor
+                    }
+                    QtControls.CheckBox {
+                        id: titlebarLayoutCheckbox
+                        checked: enabled
+                        text: i18n("Titlebar buttons layout")
+                        onCheckedChanged: {
+                            if (checked) {
+                                globalThemeConfirmSheet.selectedOptions |= Private.LookandFeelManager.TitlebarLayout
+                            } else {
+                                globalThemeConfirmSheet.selectedOptions &=  ~ Private.LookandFeelManager.TitlebarLayout
+                            }
+                        }
+                        enabled: view.model.data(view.model.index(view.currentIndex, 0), Private.KCMLookandFeel.HasTitlebarLayoutRole)
+                        visible: enabled
                     }
                     QtControls.CheckBox {
                         Kirigami.FormData.label: i18n("Appearance settings:")

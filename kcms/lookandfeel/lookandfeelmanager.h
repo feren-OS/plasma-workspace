@@ -42,8 +42,9 @@ public:
         WindowSwitcher = 1 << 8,
         SplashScreen = 1 << 9,
         LockScreen = 1 << 10,
-        WindowPlacement = 1 << 11, //FIXME: Do we still want these?
-        ShellPackage = 1 << 12,
+        TitlebarLayout = 1 << 11,
+        WindowPlacement = 1 << 12, //FIXME: Do we still want these?
+        ShellPackage = 1 << 13,
     };
     Q_DECLARE_FLAGS(ItemsToApply, ItemToApply)
     Q_FLAG(ItemsToApply)
@@ -73,6 +74,8 @@ public:
     void setWindowSwitcher(const QString &theme);
     void setDesktopSwitcher(const QString &theme);
     void setWindowDecoration(const QString &library, const QString &theme);
+    void setWindowButtonsLayout(const QString &leftbtns, const QString &rightbtns);
+    void setBorderlessMaximised(const QString &value);
     void setWindowPlacement(const QString &value);
     void setShellPackage(const QString &name);
 
