@@ -84,7 +84,7 @@ endif()
 
 kpackage_install_package(package kcm_lookandfeel kcms)
 
-###### Command line tool
+###### Command line tool (Global Theme)
 
 add_executable(plasma-apply-lookandfeel lnftool.cpp)
 
@@ -94,3 +94,14 @@ ADD_CUSTOM_TARGET(plasma-apply-lookandfeel_link ALL
                   COMMAND ${CMAKE_COMMAND} -E create_symlink ${KDE_INSTALL_FULL_BINDIR}/plasma-apply-lookandfeel ${CMAKE_CURRENT_BINARY_DIR}/lookandfeeltool)
 install( FILES ${CMAKE_CURRENT_BINARY_DIR}/lookandfeeltool DESTINATION ${KDE_INSTALL_FULL_BINDIR}/ )
 install( TARGETS plasma-apply-lookandfeel ${KDE_INSTALL_TARGETS_DEFAULT_ARGS} )
+
+###### Command line tool (Desktop Layout)
+
+add_executable(plasma-apply-desktoplayout dltool.cpp)
+
+target_link_libraries(plasma-apply-desktoplayout kcm_lookandfeel_objects)
+
+ADD_CUSTOM_TARGET(plasma-apply-desktoplayout_link ALL
+                  COMMAND ${CMAKE_COMMAND} -E create_symlink ${KDE_INSTALL_FULL_BINDIR}/plasma-apply-desktoplayout ${CMAKE_CURRENT_BINARY_DIR}/desktoplayouttool)
+install( FILES ${CMAKE_CURRENT_BINARY_DIR}/desktoplayouttool DESTINATION ${KDE_INSTALL_FULL_BINDIR}/ )
+install( TARGETS plasma-apply-desktoplayout ${KDE_INSTALL_TARGETS_DEFAULT_ARGS} )
