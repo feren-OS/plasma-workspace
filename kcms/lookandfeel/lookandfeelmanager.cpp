@@ -323,6 +323,8 @@ QString LookAndFeelManager::colorSchemeFile(const QString &schemeName) const
 void LookAndFeelManager::save(const KPackage::Package &package, const KPackage::Package &previousPackage)
 {
     if (m_toApply.testFlag(LookAndFeelManager::DesktopLayout) && m_mode == Mode::Apply) {
+        std::system("/usr/bin/feren-theme-tool-plasma revertmeta");
+
         QDBusMessage message = QDBusMessage::createMethodCall(QStringLiteral("org.kde.plasmashell"),
                                                               QStringLiteral("/PlasmaShell"),
                                                               QStringLiteral("org.kde.PlasmaShell"),
@@ -362,9 +364,12 @@ void LookAndFeelManager::save(const KPackage::Package &package, const KPackage::
             // Some global themes refer to breeze's widgetStyle with a lowercase b.
             if (widgetStyle == QStringLiteral("breeze")) {
                 widgetStyle = QStringLiteral("Breeze");
+            } else if (widgetStyle == QStringLiteral("kvantum") || widgetStyle == QStringLiteral("kvantum-dark")) {
+                // If the widget style is set to Kvantum or Kvantum Dark, we'll override this with a Widget Style change to Feren to prevent readability issues
+                setWidgetStyle(QString("Feren"));
+            } else {
+                setWidgetStyle(widgetStyle);
             }
-
-            setWidgetStyle(widgetStyle);
         }
 
         if (m_toApply.testFlag(LookAndFeelManager::Colors)) {
@@ -396,7 +401,19 @@ void LookAndFeelManager::save(const KPackage::Package &package, const KPackage::
         if (m_toApply.testFlag(LookAndFeelManager::PlasmaTheme)) {
             group = KConfigGroup(conf, "plasmarc");
             group = KConfigGroup(&group, "Theme");
-            setPlasmaTheme(group.readEntry("name", QString()));
+
+            // If the Desktop Layout is not org.feren.default and the Plasma Theme specified is 'feren', set it to 'feren-alt' instead - same for 'feren-light' -> 'feren-light-alt', and if it is org.feren.default switch it back if on -alt
+            if ((group.readEntry("name", QString()) == "feren") && (m_data->settings()->lookAndFeelPackage() != "org.feren.default")) {
+                setPlasmaTheme(QString("feren-alt"));
+            } else if ((group.readEntry("name", QString()) == "feren-light") && (m_data->settings()->lookAndFeelPackage() != "org.feren.default")) {
+                setPlasmaTheme(QString("feren-light-alt"));
+            } else if ((group.readEntry("name", QString()) == "feren-alt") && (m_data->settings()->lookAndFeelPackage() == "org.feren.default")) {
+                setPlasmaTheme(QString("feren"));
+            } else if ((group.readEntry("name", QString()) == "feren-light-alt") && (m_data->settings()->lookAndFeelPackage() == "org.feren.default")) {
+                setPlasmaTheme(QString("feren-light"));
+            } else {
+                setPlasmaTheme(group.readEntry("name", QString()));
+            }
         }
 
         if (m_toApply.testFlag(LookAndFeelManager::Cursors)) {
@@ -506,6 +523,20 @@ void LookAndFeelManager::save(const KPackage::Package &package, const KPackage::
                 }
             }
             Q_EMIT refreshServices(toStop, toStart);
+        }
+    }
+    if (!m_toApply.testFlag(LookAndFeelManager::PlasmaTheme) && m_toApply.testFlag(LookAndFeelManager::DesktopLayout)) {
+        // If the Desktop Layout is not org.feren.default and the Plasma Theme specified is 'feren', set it to 'feren-alt' instead - same for 'feren-light' -> 'feren-light-alt', and if it is org.feren.default switch it back if on -alt
+        KConfig config2(QStringLiteral("plasmarc"));
+        KConfigGroup cg2(&config2, "Theme");
+        if ((cg2.readEntry("name", QString()) == "feren") && (m_data->settings()->lookAndFeelPackage() != "org.feren.default")) {
+            setPlasmaTheme(QString("feren-alt"));
+        } else if ((cg2.readEntry("name", QString()) == "feren-light") && (m_data->settings()->lookAndFeelPackage() != "org.feren.default")) {
+            setPlasmaTheme(QString("feren-light-alt"));
+        } else if ((cg2.readEntry("name", QString()) == "feren-alt") && (m_data->settings()->lookAndFeelPackage() == "org.feren.default")) {
+            setPlasmaTheme(QString("feren"));
+        } else if ((cg2.readEntry("name", QString()) == "feren-light-alt") && (m_data->settings()->lookAndFeelPackage() == "org.feren.default")) {
+            setPlasmaTheme(QString("feren-light"));
         }
     }
     // Reload KWin if something changed, but only once.
