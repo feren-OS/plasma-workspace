@@ -401,19 +401,6 @@ void LookAndFeelManager::save(const KPackage::Package &package, const KPackage::
         if (m_toApply.testFlag(LookAndFeelManager::PlasmaTheme)) {
             group = KConfigGroup(conf, "plasmarc");
             group = KConfigGroup(&group, "Theme");
-
-            // If the Desktop Layout is not org.feren.default and the Plasma Theme specified is 'feren', set it to 'feren-alt' instead - same for 'feren-light' -> 'feren-light-alt', and if it is org.feren.default switch it back if on -alt
-            if ((group.readEntry("name", QString()) == "feren") && (m_data->settings()->lookAndFeelPackage() != "org.feren.default")) {
-                setPlasmaTheme(QString("feren-alt"));
-            } else if ((group.readEntry("name", QString()) == "feren-light") && (m_data->settings()->lookAndFeelPackage() != "org.feren.default")) {
-                setPlasmaTheme(QString("feren-light-alt"));
-            } else if ((group.readEntry("name", QString()) == "feren-alt") && (m_data->settings()->lookAndFeelPackage() == "org.feren.default")) {
-                setPlasmaTheme(QString("feren"));
-            } else if ((group.readEntry("name", QString()) == "feren-light-alt") && (m_data->settings()->lookAndFeelPackage() == "org.feren.default")) {
-                setPlasmaTheme(QString("feren-light"));
-            } else {
-                setPlasmaTheme(group.readEntry("name", QString()));
-            }
         }
 
         if (m_toApply.testFlag(LookAndFeelManager::Cursors)) {
@@ -523,20 +510,6 @@ void LookAndFeelManager::save(const KPackage::Package &package, const KPackage::
                 }
             }
             Q_EMIT refreshServices(toStop, toStart);
-        }
-    }
-    if (!m_toApply.testFlag(LookAndFeelManager::PlasmaTheme) && m_toApply.testFlag(LookAndFeelManager::DesktopLayout)) {
-        // If the Desktop Layout is not org.feren.default and the Plasma Theme specified is 'feren', set it to 'feren-alt' instead - same for 'feren-light' -> 'feren-light-alt', and if it is org.feren.default switch it back if on -alt
-        KConfig config2(QStringLiteral("plasmarc"));
-        KConfigGroup cg2(&config2, "Theme");
-        if ((cg2.readEntry("name", QString()) == "feren") && (m_data->settings()->lookAndFeelPackage() != "org.feren.default")) {
-            setPlasmaTheme(QString("feren-alt"));
-        } else if ((cg2.readEntry("name", QString()) == "feren-light") && (m_data->settings()->lookAndFeelPackage() != "org.feren.default")) {
-            setPlasmaTheme(QString("feren-light-alt"));
-        } else if ((cg2.readEntry("name", QString()) == "feren-alt") && (m_data->settings()->lookAndFeelPackage() == "org.feren.default")) {
-            setPlasmaTheme(QString("feren"));
-        } else if ((cg2.readEntry("name", QString()) == "feren-light-alt") && (m_data->settings()->lookAndFeelPackage() == "org.feren.default")) {
-            setPlasmaTheme(QString("feren-light"));
         }
     }
     // Reload KWin if something changed, but only once.
