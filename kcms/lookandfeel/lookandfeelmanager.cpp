@@ -139,6 +139,11 @@ void LookAndFeelManager::setWindowDecoration(const QString &library, const QStri
     KConfig configDefault(configDefaults(QStringLiteral("kwinrc")));
     KConfigGroup defaultGroup(&configDefault, QStringLiteral("org.kde.kdecoration2"));
     writeNewDefaults(group, defaultGroup, QStringLiteral("library"), library);
+    if (QString(library) == "org.kde.kwin.aurorae") {
+        std::system("/usr/bin/feren-theme-tool-plasma disableshadowfix");
+    } else {
+        std::system("/usr/bin/feren-theme-tool-plasma shadowfix");
+    }
     writeNewDefaults(group, defaultGroup, QStringLiteral("theme"), theme, KConfig::Notify);
 }
 
