@@ -406,6 +406,7 @@ void LookAndFeelManager::save(const KPackage::Package &package, const KPackage::
         if (m_toApply.testFlag(LookAndFeelManager::PlasmaTheme)) {
             group = KConfigGroup(conf, "plasmarc");
             group = KConfigGroup(&group, "Theme");
+            setPlasmaTheme(group.readEntry("name", QString()));
         }
 
         if (m_toApply.testFlag(LookAndFeelManager::Cursors)) {
