@@ -98,7 +98,7 @@ KCM.GridViewKCM {
         footer: ColumnLayout {
             RowLayout {
                 QtControls.Button {
-                    text: stackSwitcher.depth === 1 ? i18n("Choose what to apply?") : i18n("Show fewer options?")
+                    text: stackSwitcher.depth === 1 ? i18n("Choose what to apply…") : i18n("Show fewer options…")
                     icon.name: stackSwitcher.depth === 1 ? "settings-configure" : "go-previous"
                     enabled: view.model.data(view.model.index(view.currentIndex, 0), Private.KCMLookandFeel.HasGlobalThemeRole)
                     onClicked: {

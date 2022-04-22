@@ -76,7 +76,8 @@ KCMLookandFeel::KCMLookandFeel(QObject *parent, const KPluginMetaData &data, con
     roles[HasRunCommandRole] = "hasRunCommand";
     roles[HasLogoutRole] = "hasLogout";
     roles[HasGlobalThemeRole] = "hasGlobalTheme"; //For the Global Theme global checkbox
-    roles[HasDesktopLayoutRole] = "hasDesktopLayout"; //For the Desktop Layout checkbox in More Options
+    roles[HasLayoutSettingsRole] = "hasLayoutSettings"; //For the Desktop Layout checkbox in More Options
+    roles[HasDesktopLayoutRole] = "hasDesktopLayout";
 
     roles[HasColorsRole] = "hasColors";
     roles[HasWidgetStyleRole] = "hasWidgetStyle";
@@ -86,6 +87,7 @@ KCMLookandFeel::KCMLookandFeel(QObject *parent, const KPluginMetaData &data, con
     roles[HasWindowSwitcherRole] = "hasWindowSwitcher";
     roles[HasDesktopSwitcherRole] = "hasDesktopSwitcher";
     roles[HasWindowDecorationRole] = "hasWindowDecoration";
+    roles[HasTitlebarLayoutRole] = "hasTitlebarLayout";
     m_model->setItemRoleNames(roles);
     loadModel();
     connect(m_lnf, &LookAndFeelManager::appearanceToApplyChanged, this, &KCMLookandFeel::appearanceToApplyChanged);
@@ -235,6 +237,7 @@ void KCMLookandFeel::addKPackageToModel(const KPackage::Package &pkg)
 
     // What the package provides
     row->setData(!pkg.filePath("defaults").isEmpty(), HasGlobalThemeRole);
+    row->setData(!pkg.filePath("layouts").isEmpty(), HasLayoutSettingsRole);
     row->setData(!pkg.filePath("layouts").isEmpty(), HasDesktopLayoutRole);
     row->setData(!pkg.filePath("splashmainscript").isEmpty(), HasSplashRole);
     row->setData(!pkg.filePath("lockscreenmainscript").isEmpty(), HasLockScreenRole);
@@ -288,6 +291,15 @@ void KCMLookandFeel::addKPackageToModel(const KPackage::Package &pkg)
         row->setData(false, HasWindowSwitcherRole);
         row->setData(false, HasDesktopSwitcherRole);
         row->setData(false, HasWindowDecorationRole);
+    }
+    if (!pkg.filePath("layouts").isEmpty() && QFileInfo::exists(pkg.filePath("layouts") + QString("/defaults"))) {
+        KSharedConfigPtr conf = KSharedConfig::openConfig(pkg.filePath("layouts") + QString("/defaults"));
+        KConfigGroup cg(conf, "kwinrc");
+        cg = KConfigGroup(&cg, "org.kde.kdecoration2");
+        row->setData((!cg.readEntry("ButtonsOnLeft", QString()).isEmpty() || !cg.readEntry("ButtonsOnRight", QString()).isEmpty()), HasTitlebarLayoutRole);
+    } else {
+        //This fallback is needed since the sheet 'breaks' without it
+        row->setData(false, HasTitlebarLayoutRole);
     }
 
     m_model->appendRow(row);

@@ -150,6 +150,38 @@ void LookAndFeelManager::setWindowDecoration(const QString &library, const QStri
     writeNewDefaults(group, defaultGroup, QStringLiteral("theme"), theme, KConfig::Notify);
 }
 
+void LookAndFeelManager::setWindowButtonsLayout(const QString &leftbtns, const QString &rightbtns)
+{
+    if (leftbtns.isEmpty() && rightbtns.isEmpty()) {
+        return;
+    }
+
+    KConfig config(QStringLiteral("kwinrc"));
+    KConfigGroup cg(&config, QStringLiteral("org.kde.kdecoration2"));
+    KConfig configDefault(configDefaults(QStringLiteral("kwinrc")));
+    KConfigGroup cgd(&configDefault, QStringLiteral("org.kde.kdecoration2"));
+
+    writeNewDefaults(cg, cgd, QStringLiteral("ButtonsOnLeft"), leftbtns);
+    writeNewDefaults(cg, cgd, QStringLiteral("ButtonsOnRight"), rightbtns);
+}
+
+void LookAndFeelManager::setBorderlessMaximised(const QString &value)
+{
+
+    KConfig config(QStringLiteral("kwinrc"));
+    KConfigGroup cg(&config, QStringLiteral("Windows"));
+    KConfig configDefault(configDefaults(QStringLiteral("kwinrc")));
+    KConfigGroup cgd(&configDefault, QStringLiteral("Windows"));
+
+
+    if (value.isEmpty()) {
+        writeNewDefaults(cg, cgd, QStringLiteral("BorderlessMaximizedWindows"), "false");
+        return;
+    }
+
+    writeNewDefaults(cg, cgd, QStringLiteral("BorderlessMaximizedWindows"), value);
+}
+
 void LookAndFeelManager::setWidgetStyle(const QString &style)
 {
     if (style.isEmpty()) {
@@ -316,6 +348,19 @@ void LookAndFeelManager::save(const KPackage::Package &package, const KPackage::
         }
     }
 
+    if (!package.filePath("layouts").isEmpty() && QFileInfo::exists(package.filePath("layouts") + QString("/defaults"))) {
+        KSharedConfigPtr conf = KSharedConfig::openConfig(package.filePath("layouts") + QString("/defaults"));
+        KConfigGroup group(conf, "kwinrc");
+        if (m_layoutToApply.testFlag(LookAndFeelManager::TitlebarLayout)) {
+            group = KConfigGroup(&group, "org.kde.kdecoration2");
+            setWindowButtonsLayout(group.readEntry("ButtonsOnLeft", QString()), group.readEntry("ButtonsOnRight", QString()));
+        }
+        if (m_layoutToApply.testFlag(LookAndFeelManager::DesktopLayout) && m_mode == Mode::Apply) {
+            group = KConfigGroup(conf, "kwinrc");
+            group = KConfigGroup(&group, "Windows");
+            setBorderlessMaximised(group.readEntry("BorderlessMaximizedWindows", QString()));
+        }
+    }
     if (!package.filePath("defaults").isEmpty()) {
         KSharedConfigPtr conf = KSharedConfig::openConfig(package.filePath("defaults"));
         KConfigGroup group(conf, "kdeglobals");
@@ -420,12 +465,6 @@ void LookAndFeelManager::save(const KPackage::Package &package, const KPackage::
             return;
         }
 
-        // Reload KWin if something changed, but only once.
-        if (m_appearanceToApply.testFlag(LookAndFeelManager::WindowSwitcher) || m_layoutToApply.testFlag(LookAndFeelManager::DesktopSwitcher) || m_appearanceToApply.testFlag(LookAndFeelManager::WindowDecoration) || m_layoutToApply.testFlag(LookAndFeelManager::WindowPlacement)) {
-            QDBusMessage message = QDBusMessage::createSignal(QStringLiteral("/KWin"), QStringLiteral("org.kde.KWin"), QStringLiteral("reloadConfig"));
-            QDBusConnection::sessionBus().send(message);
-        }
-
         if (m_plasmashellChanged) {
             QDBusMessage message =
                 QDBusMessage::createSignal(QStringLiteral("/PlasmaShell"), QStringLiteral("org.kde.PlasmaShell"), QStringLiteral("refreshCurrentShell"));
@@ -471,6 +510,13 @@ void LookAndFeelManager::save(const KPackage::Package &package, const KPackage::
             }
             Q_EMIT refreshServices(toStop, toStart);
         }
+    }
+
+    // Reload KWin if something changed, but only once.
+    if (m_appearanceToApply.testFlag(LookAndFeelManager::WindowSwitcher) || m_layoutToApply.testFlag(LookAndFeelManager::DesktopSwitcher) || m_appearanceToApply.testFlag(LookAndFeelManager::WindowDecoration) || m_layoutToApply.testFlag(LookAndFeelManager::WindowPlacement) ||
+    m_layoutToApply.testFlag(LookAndFeelManager::TitlebarLayout)) {
+        QDBusMessage message = QDBusMessage::createSignal(QStringLiteral("/KWin"), QStringLiteral("org.kde.KWin"), QStringLiteral("reloadConfig"));
+        QDBusConnection::sessionBus().send(message);
     }
 }
 

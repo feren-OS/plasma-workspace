@@ -47,6 +47,7 @@ public:
         HasRunCommandRole,
         HasLogoutRole,
         HasGlobalThemeRole,
+        HasLayoutSettingsRole,
         HasDesktopLayoutRole,
         HasColorsRole,
         HasWidgetStyleRole,
@@ -56,6 +57,7 @@ public:
         HasWindowSwitcherRole,
         HasDesktopSwitcherRole,
         HasWindowDecorationRole,
+        HasTitlebarLayoutRole,
     };
     Q_ENUM(Roles)
 
