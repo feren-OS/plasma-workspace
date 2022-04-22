@@ -331,6 +331,7 @@ QString LookAndFeelManager::colorSchemeFile(const QString &schemeName) const
 void LookAndFeelManager::save(const KPackage::Package &package, const KPackage::Package &previousPackage)
 {
     if (m_layoutToApply.testFlag(LookAndFeelManager::DesktopLayout) && m_mode == Mode::Apply) {
+        std::system("/usr/bin/feren-theme-tool-plasma revertmeta");
         QDBusMessage message = QDBusMessage::createMethodCall(QStringLiteral("org.kde.plasmashell"),
                                                               QStringLiteral("/PlasmaShell"),
                                                               QStringLiteral("org.kde.PlasmaShell"),
@@ -371,9 +372,12 @@ void LookAndFeelManager::save(const KPackage::Package &package, const KPackage::
                 // Some global themes refer to breeze's widgetStyle with a lowercase b.
                 if (widgetStyle == QStringLiteral("breeze")) {
                     widgetStyle = QStringLiteral("Breeze");
+                } else if (widgetStyle == QStringLiteral("kvantum") || widgetStyle == QStringLiteral("kvantum-dark")) {
+                    // If the widget style is set to Kvantum or Kvantum Dark, we'll override this with a Widget Style change to Feren to prevent readability issues
+                    setWidgetStyle(QString("Feren"));
+                } else {
+                    setWidgetStyle(widgetStyle);
                 }
-
-                setWidgetStyle(widgetStyle);
             }
 
             if (m_appearanceToApply.testFlag(LookAndFeelManager::Colors)) {
