@@ -39,7 +39,7 @@ ColumnLayout {
             id: appearanceSettingsCheckboxLblSub
             visible: !resetCheckbox.enabled && appearanceSettingsCheckbox.enabled
             Layout.fillWidth: true
-            text: i18nc("List item", "? Appearance settings")
+            text: i18nc("List item", "• Appearance settings")
             wrapMode: Text.WordWrap
         }
         QtControls.CheckBox {
@@ -55,7 +55,7 @@ ColumnLayout {
             id: resetCheckboxLblSub
             visible: resetCheckbox.enabled && !appearanceSettingsCheckbox.enabled
             Layout.fillWidth: true
-            text: i18nc("List item", "? Desktop and window layout")
+            text: i18nc("List item", "• Desktop and window layout")
             wrapMode: Text.WordWrap
         }
         QtControls.Label {
