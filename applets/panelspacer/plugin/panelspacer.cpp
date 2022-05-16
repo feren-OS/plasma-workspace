@@ -123,6 +123,7 @@ PlasmaQuick::AppletQuickItem *PanelSpacer::twinSpacer() const
 
 PlasmaQuick::AppletQuickItem *PanelSpacer::containmentGraphicObject() const
 {
+    if (!containment()) return nullptr;
     return containment()->property("_plasma_graphicObject").value<PlasmaQuick::AppletQuickItem *>();
 }
 
