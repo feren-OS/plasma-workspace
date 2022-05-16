@@ -81,7 +81,6 @@ ColumnLayout {
                     { text: i18n("Icons"), role: Private.KCMLookandFeel.HasIconsRole, flag: Private.LookandFeelManager.Icons },
                     { text: i18n("Plasma Style"), role: Private.KCMLookandFeel.HasPlasmaThemeRole, flag: Private.LookandFeelManager.PlasmaTheme },
                     { text: i18n("Cursors"), role: Private.KCMLookandFeel.HasCursorsRole, flag: Private.LookandFeelManager.Cursors },
-                    { text: i18n("Fonts"), role: Private.KCMLookandFeel.HasFontsRole, flag: Private.LookandFeelManager.Fonts },
                     { text: i18n("Task Switcher"), role: Private.KCMLookandFeel.HasWindowSwitcherRole, flag: Private.LookandFeelManager.WindowSwitcher },
                     { text: i18n("Splash Screen"), role: Private.KCMLookandFeel.HasSplashRole, flag: Private.LookandFeelManager.SplashScreen },
                     { text: i18n("Lock Screen"), role: Private.KCMLookandFeel.HasLockScreenRole, flag: Private.LookandFeelManager.LockScreen },
