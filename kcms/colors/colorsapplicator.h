@@ -47,7 +47,13 @@ inline QColor alphaBlend(const QColor &foreground, const QColor &background)
 inline QColor accentBackground(const QColor& accent, const QColor& background)
 {
     auto c = accent;
-    c.setAlphaF(0.7);
+    // light bg
+    if (KColorUtils::luma(background) > 0.5) {
+        c.setAlphaF(1.0);
+    } else {
+    // dark bg
+        c.setAlphaF(0.7);
+    }
     return alphaBlend(c, background);
 }
 

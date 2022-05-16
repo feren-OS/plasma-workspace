@@ -147,7 +147,32 @@ void LookAndFeelManager::setWindowDecoration(const QString &library, const QStri
     KConfig configDefault(configDefaults(QStringLiteral("kwinrc")));
     KConfigGroup defaultGroup(&configDefault, QStringLiteral("org.kde.kdecoration2"));
     writeNewDefaults(group, defaultGroup, QStringLiteral("library"), library);
+    if (QString(library) == "org.kde.kwin.aurorae") {
+        std::system("/usr/bin/feren-theme-tool-plasma disableshadowfix");
+    } else {
+        std::system("/usr/bin/feren-theme-tool-plasma shadowfix");
+    }
     writeNewDefaults(group, defaultGroup, QStringLiteral("theme"), theme, KConfig::Notify);
+}
+
+void LookAndFeelManager::setTitlebarLayout(const QString &leftbtns, const QString &rightbtns)
+{
+    if (leftbtns.isEmpty() && rightbtns.isEmpty()) {
+        return;
+    }
+
+    writeNewDefaults(QStringLiteral("kwinrc"), QStringLiteral("org.kde.kdecoration2"), QStringLiteral("ButtonsOnLeft"), leftbtns, KConfig::Notify);
+    writeNewDefaults(QStringLiteral("kwinrc"), QStringLiteral("org.kde.kdecoration2"), QStringLiteral("ButtonsOnRight"), rightbtns, KConfig::Notify);
+}
+
+void LookAndFeelManager::setBorderlessMaximized(const QString &value)
+{
+    if (value.isEmpty()) { //Turn borderless off for unsupported LNFs to prevent issues
+        writeNewDefaults(QStringLiteral("kwinrc"), QStringLiteral("Windows"), QStringLiteral("BorderlessMaximizedWindows"), "false", KConfig::Notify);
+        return;
+    }
+
+    writeNewDefaults(QStringLiteral("kwinrc"), QStringLiteral("Windows"), QStringLiteral("BorderlessMaximizedWindows"), value, KConfig::Notify);
 }
 
 void LookAndFeelManager::setWidgetStyle(const QString &style)
@@ -299,6 +324,7 @@ QString LookAndFeelManager::colorSchemeFile(const QString &schemeName) const
 void LookAndFeelManager::save(const KPackage::Package &package, const KPackage::Package &previousPackage)
 {
     if (m_layoutToApply.testFlag(LookAndFeelManager::DesktopLayout) && m_mode == Mode::Apply) {
+        std::system("/usr/bin/feren-theme-tool-plasma revertmeta");
         QDBusMessage message = QDBusMessage::createMethodCall(QStringLiteral("org.kde.plasmashell"),
                                                               QStringLiteral("/PlasmaShell"),
                                                               QStringLiteral("org.kde.PlasmaShell"),
@@ -316,6 +342,19 @@ void LookAndFeelManager::save(const KPackage::Package &package, const KPackage::
         }
     }
 
+    if (!package.filePath("layouts").isEmpty() && QFileInfo::exists(package.filePath("layouts") + QString("/defaults"))) {
+        KSharedConfigPtr conf = KSharedConfig::openConfig(package.filePath("layouts") + QString("/defaults"));
+        KConfigGroup group(conf, "kwinrc");
+        if (m_layoutToApply.testFlag(LookAndFeelManager::TitlebarLayout)) {
+            group = KConfigGroup(&group, "org.kde.kdecoration2");
+            setTitlebarLayout(group.readEntry("ButtonsOnLeft", QString()), group.readEntry("ButtonsOnRight", QString()));
+        }
+        if (m_layoutToApply.testFlag(LookAndFeelManager::DesktopLayout) && m_mode == Mode::Apply) {
+            group = KConfigGroup(conf, "kwinrc");
+            group = KConfigGroup(&group, "Windows");
+            setBorderlessMaximized(group.readEntry("BorderlessMaximizedWindows", QString()));
+        }
+    }
     if (!package.filePath("defaults").isEmpty()) {
         KSharedConfigPtr conf = KSharedConfig::openConfig(package.filePath("defaults"));
         KConfigGroup group(conf, "kdeglobals");
@@ -326,9 +365,12 @@ void LookAndFeelManager::save(const KPackage::Package &package, const KPackage::
                 // Some global themes refer to breeze's widgetStyle with a lowercase b.
                 if (widgetStyle == QStringLiteral("breeze")) {
                     widgetStyle = QStringLiteral("Breeze");
+                } else if (widgetStyle == QStringLiteral("kvantum") || widgetStyle == QStringLiteral("kvantum-dark")) {
+                    // If the widget style is set to Kvantum or Kvantum Dark, we'll override this with a Widget Style change to Feren to prevent readability issues
+                    setWidgetStyle(QString("Feren"));
+                } else {
+                    setWidgetStyle(widgetStyle);
                 }
-
-                setWidgetStyle(widgetStyle);
             }
 
             if (m_appearanceToApply.testFlag(LookAndFeelManager::Colors)) {
@@ -420,12 +462,6 @@ void LookAndFeelManager::save(const KPackage::Package &package, const KPackage::
             return;
         }
 
-        // Reload KWin if something changed, but only once.
-        if (m_appearanceToApply.testFlag(LookAndFeelManager::WindowSwitcher) || m_layoutToApply.testFlag(LookAndFeelManager::DesktopSwitcher) || m_appearanceToApply.testFlag(LookAndFeelManager::WindowDecoration) || m_layoutToApply.testFlag(LookAndFeelManager::WindowPlacement)) {
-            QDBusMessage message = QDBusMessage::createSignal(QStringLiteral("/KWin"), QStringLiteral("org.kde.KWin"), QStringLiteral("reloadConfig"));
-            QDBusConnection::sessionBus().send(message);
-        }
-
         if (m_plasmashellChanged) {
             QDBusMessage message =
                 QDBusMessage::createSignal(QStringLiteral("/PlasmaShell"), QStringLiteral("org.kde.PlasmaShell"), QStringLiteral("refreshCurrentShell"));
@@ -471,6 +507,12 @@ void LookAndFeelManager::save(const KPackage::Package &package, const KPackage::
             }
             Q_EMIT refreshServices(toStop, toStart);
         }
+    }
+    // Reload KWin if something changed, but only once.
+    if (m_appearanceToApply.testFlag(LookAndFeelManager::WindowSwitcher) || m_layoutToApply.testFlag(LookAndFeelManager::DesktopSwitcher) || m_appearanceToApply.testFlag(LookAndFeelManager::WindowDecoration) || m_layoutToApply.testFlag(LookAndFeelManager::WindowPlacement) ||
+    m_layoutToApply.testFlag(LookAndFeelManager::TitlebarLayout)) {
+        QDBusMessage message = QDBusMessage::createSignal(QStringLiteral("/KWin"), QStringLiteral("org.kde.KWin"), QStringLiteral("reloadConfig"));
+        QDBusConnection::sessionBus().send(message);
     }
 }
 
