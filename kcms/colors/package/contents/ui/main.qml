@@ -179,7 +179,7 @@ KCM.GridViewKCM {
 
                     onToggled: {
                         if (enabled) {
-                            kcm.accentColor = colorRepeater.model[0]
+                            kcm.accentColor = colorRepeaterFeren.model[0]
                         }
                     }
                     /* This required when someone directly clicks one of the accent color buttons or the color picker instead
@@ -293,6 +293,7 @@ KCM.GridViewKCM {
                         readonly property bool isCustomColor: !wallpaperAccentBox.checked
                             && root.accentColor
                             && !colorRepeater.model.some(color => Qt.colorEqual(color, root.accentColor))
+                            && !colorRepeaterFeren.model.some(color => Qt.colorEqual(color, root.accentColor))
 
                        /* The qt binding will keep the binding alive as well as uncheck the button
                         * we can't just disable the button because then the icon will become grey
@@ -322,6 +323,35 @@ KCM.GridViewKCM {
 
                             icon.name: "color-picker"
                             icon.width : Kirigami.Units.iconSizes.small // This provides a nice padding
+                        }
+                    }
+                }
+            }
+            RowLayout {
+                spacing: accentBox.spacing
+
+                Repeater {
+                    id: colorRepeaterFeren
+
+                    model: [
+                        "#006aff",
+                        "#d23c3c",
+                        "#cf6a18",
+                        "#e3c635",
+                        "#81b74b",
+                        "#4db79d",
+                        "#d1244e",
+                        "#6f3b79",
+                        "#656565",
+                    ]
+
+                    delegate: ColorRadioButton {
+                        color: modelData
+                        checked: Qt.colorEqual(kcm.accentColor, modelData)
+
+                        onToggled: {
+                            kcm.accentColor = modelData
+                            checked = Qt.binding(() => Qt.colorEqual(kcm.accentColor, modelData));
                         }
                     }
                 }
