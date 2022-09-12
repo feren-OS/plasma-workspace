@@ -85,7 +85,7 @@
         "Description[vi]": "Hiển thị thông báo và công việc",
         "Description[x-test]": "xxDisplay notifications and jobsxx",
         "Description[zh_CN]": "显示通知和任务",
-        "EnabledByDefault": true,
+        "EnabledByDefault": false,
         "FormFactors": [
             "desktop"
         ],
