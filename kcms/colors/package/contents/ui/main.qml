@@ -246,6 +246,15 @@ KCM.GridViewKCM {
                             "#b875dc",
                             "#926ee4",
                             "#686b6f",
+                            "#006aff",
+                            "#d23c3c",
+                            "#cf6a18",
+                            "#e3c635",
+                            "#81b74b",
+                            "#4db79d",
+                            "#d1244e",
+                            "#6f3b79",
+                            "#656565",
                         ]
 
                         delegate: ColorRadioButton {
